@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>PaperBull — Indian Stock Market Simulator</title>
+    <meta name="description" content="Hyper-realistic NSE/BSE paper trading platform with real-time simulation">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <canvas id="bgCanvas"></canvas>
+
+    <!-- ===== OTP SCREEN ===== -->
+    <div id="otpScreen" class="screen active">
+        <div class="otp-container glass-card">
+            <div class="otp-logo">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="22" stroke="url(#logoGrad)" stroke-width="3" />
+                    <path d="M16 30 L22 18 L28 26 L34 14" stroke="url(#logoGrad)" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+                            <stop stop-color="#10b981" />
+                            <stop offset="1" stop-color="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>PaperBull</h1>
+                <p class="tagline">Master the Market. Zero Risk.</p>
+            </div>
+            <div id="phoneStep" class="otp-step active">
+                <label>Enter Mobile Number</label>
+                <div class="phone-input-row">
+                    <span class="country-code">+91</span>
+                    <input type="tel" id="phoneInput" maxlength="10" placeholder="9876543210" autocomplete="off">
+                </div>
+                <button id="sendOtpBtn" class="btn-primary" onclick="OTP.sendOtp()">Get OTP</button>
+            </div>
+            <div id="otpStep" class="otp-step">
+                <label>Enter OTP sent to <span id="otpPhone"></span></label>
+                <div class="otp-digits" id="otpDigits">
+                    <input type="text" maxlength="1" data-idx="0" class="otp-box">
+                    <input type="text" maxlength="1" data-idx="1" class="otp-box">
+                    <input type="text" maxlength="1" data-idx="2" class="otp-box">
+                    <input type="text" maxlength="1" data-idx="3" class="otp-box">
+                    <input type="text" maxlength="1" data-idx="4" class="otp-box">
+                    <input type="text" maxlength="1" data-idx="5" class="otp-box">
+                </div>
+                <div id="smsAnim" class="sms-animation">
+                    <div class="sms-bubble">📩 OTP: <span id="smsOtpDisplay"></span></div>
+                </div>
+                <button class="btn-primary" onclick="OTP.verifyOtp()">Verify & Start Trading</button>
+                <button class="btn-link" onclick="OTP.resend()">Resend OTP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== INTRO ANIMATION SCREEN ===== -->
+    <div id="introScreen" class="screen">
+        <div class="intro-content">
+            <div class="intro-ticker" id="introTicker"></div>
+            <h1 class="intro-title">Welcome to <span class="gradient-text">PaperBull</span></h1>
+            <p class="intro-sub">Your journey to becoming a market master begins now</p>
+            <div class="intro-features">
+                <div class="intro-feat"><span>📊</span>
+                    <p>Real-time Simulation</p>
+                </div>
+                <div class="intro-feat"><span>💹</span>
+                    <p>Intraday · CNC · F&O</p>
+                </div>
+                <div class="intro-feat"><span>🏆</span>
+                    <p>Earn XP & Level Up</p>
+                </div>
+            </div>
+            <button class="btn-primary btn-glow" onclick="App.startDashboard()">Enter Market →</button>
+            <button class="btn-link" onclick="App.startDashboard()">Skip Intro</button>
+        </div>
+    </div>
+
+    <!-- ===== MAIN DASHBOARD ===== -->
+    <div id="dashboard" class="screen">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="UI.toggleSidebar()">☰</button>
+                <div class="logo-sm">
+                    <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+                        <circle cx="24" cy="24" r="22" stroke="url(#logoGrad2)" stroke-width="3" />
+                        <path d="M16 30 L22 18 L28 26 L34 14" stroke="url(#logoGrad2)" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                        <defs>
+                            <linearGradient id="logoGrad2" x1="0" y1="0" x2="48" y2="48">
+                                <stop stop-color="#10b981" />
+                                <stop offset="1" stop-color="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span>PaperBull</span>
+                </div>
+            </div>
+            <div class="topbar-center">
+                <div class="market-status" id="marketStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Market Closed</span>
+                </div>
+                <div class="topbar-time" id="topbarTime"></div>
+            </div>
+            <div class="topbar-right">
+                <div class="xp-badge" onclick="UI.showTab('profile')">
+                    <span class="xp-level" id="headerLevel">Lv 1</span>
+                    <div class="xp-bar-mini">
+                        <div class="xp-fill-mini" id="headerXpFill"></div>
+                    </div>
+                </div>
+                <div class="capital-display">₹<span id="headerCapital">1,00,000</span></div>
+                <button class="theme-toggle" onclick="Theme.toggle()" title="Toggle Theme">🌓</button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <button class="nav-btn active" data-tab="market" onclick="UI.showTab('market')"><i
+                    data-lucide="bar-chart-2"></i><span>Market</span></button>
+            <button class="nav-btn" data-tab="portfolio" onclick="UI.showTab('portfolio')"><i
+                    data-lucide="briefcase"></i><span>Portfolio</span></button>
+            <button class="nav-btn" data-tab="orders" onclick="UI.showTab('orders')"><i
+                    data-lucide="scroll-text"></i><span>Orders</span></button>
+            <button class="nav-btn" data-tab="fno" onclick="UI.showTab('fno')"><i
+                    data-lucide="layers"></i><span>F&O</span></button>
+            <button class="nav-btn" data-tab="predict" onclick="UI.showTab('predict')"><i
+                    data-lucide="target"></i><span>Predict</span></button>
+            <button class="nav-btn" data-tab="quiz" onclick="UI.showTab('quiz')"><i
+                    data-lucide="brain"></i><span>Quiz</span></button>
+            <button class="nav-btn" data-tab="profile" onclick="UI.showTab('profile')"><i
+                    data-lucide="trophy"></i><span>Profile</span></button>
+            <button class="nav-btn" data-tab="settings" onclick="UI.showTab('settings')"><i
+                    data-lucide="settings"></i><span>Settings</span></button>
+            <div style="flex:1"></div>
+            <button class="nav-btn logout-btn" onclick="App.logout()" title="Logout"><i
+                    data-lucide="log-out"></i><span>Logout</span></button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- MARKET TAB -->
+            <section class="tab-content active" id="tab-market">
+                <div class="market-header">
+                    <h2>Market Watch</h2>
+                    <div class="market-filters">
+                        <select id="exchangeFilter" onchange="MarketUI.filterExchange()">
+                            <option value="all">All</option>
+                            <option value="NSE">NSE</option>
+                            <option value="BSE">BSE</option>
+                        </select>
+                        <select id="sectorFilter" onchange="MarketUI.filterSector()">
+                            <option value="all">All Sectors</option>
+                            <option value="IT">IT</option>
+                            <option value="Banking">Banking</option>
+                            <option value="Pharma">Pharma</option>
+                            <option value="Auto">Auto</option>
+                            <option value="FMCG">FMCG</option>
+                            <option value="Energy">Energy</option>
+                            <option value="Metal">Metal</option>
+                            <option value="Infra">Infra</option>
+                            <option value="Cement">Cement</option>
+                        </select>
+                        <input type="text" id="stockSearch" placeholder="Search stocks..." oninput="MarketUI.search()">
+                    </div>
+                </div>
+                <div class="indices-bar">
+                    <div class="index-card glass-card" id="niftyCard"><span class="idx-name">NIFTY 50</span><span
+                            class="idx-val" id="niftyVal">22,450.00</span><span class="idx-chg"
+                            id="niftyChg">+0.00%</span></div>
+                    <div class="index-card glass-card" id="sensexCard"><span class="idx-name">SENSEX</span><span
+                            class="idx-val" id="sensexVal">73,800.00</span><span class="idx-chg"
+                            id="sensexChg">+0.00%</span></div>
+                    <div class="index-card glass-card" id="bniftyCard"><span class="idx-name">BANK NIFTY</span><span
+                            class="idx-val" id="bniftyVal">47,200.00</span><span class="idx-chg"
+                            id="bniftyChg">+0.00%</span></div>
+                </div>
+                <div class="stock-table-wrap">
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Exchange</th>
+                                <th>LTP</th>
+                                <th>Change</th>
+                                <th>%</th>
+                                <th>Open</th>
+                                <th>High</th>
+                                <th>Low</th>
+                                <th>Volume</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TRADE MODAL -->
+            <div class="modal-overlay" id="tradeModal">
+                <div class="trade-panel glass-card">
+                    <div class="trade-header">
+                        <h3 id="tradeSymbol">RELIANCE</h3>
+                        <span id="tradeLtp" class="trade-ltp">₹2,450.00</span>
+                        <button class="modal-close" onclick="TradeUI.closeModal()">✕</button>
+                    </div>
+                    <div class="trade-chart-area">
+                        <canvas id="tradeChart" width="500" height="200"></canvas>
+                    </div>
+                    <div class="trade-tabs">
+                        <button class="tt active" data-side="BUY" onclick="TradeUI.setSide('BUY')">BUY</button>
+                        <button class="tt" data-side="SELL" onclick="TradeUI.setSide('SELL')">SELL</button>
+                    </div>
+                    <div class="trade-form">
+                        <div class="trade-mode-select">
+                            <label><input type="radio" name="tradeMode" value="INTRADAY" checked
+                                    onchange="TradeUI.setMode(this.value)"> Intraday (5x)</label>
+                            <label><input type="radio" name="tradeMode" value="CNC"
+                                    onchange="TradeUI.setMode(this.value)"> CNC</label>
+                        </div>
+                        <div class="trade-type-select">
+                            <label><input type="radio" name="orderType" value="MARKET" checked
+                                    onchange="TradeUI.setOrderType(this.value)"> Market</label>
+                            <label><input type="radio" name="orderType" value="LIMIT"
+                                    onchange="TradeUI.setOrderType(this.value)"> Limit</label>
+                        </div>
+                        <div class="form-row">
+                            <label>Qty</label><input type="number" id="tradeQty" min="1" value="1">
+                        </div>
+                        <div class="form-row limit-row" id="limitRow" style="display:none">
+                            <label>Price</label><input type="number" id="tradePrice" step="0.05">
+                        </div>
+                        <div class="trade-summary">
+                            <div>Est. Value: <strong id="tradeEstValue">₹0</strong></div>
+                            <div>Margin Req: <strong id="tradeMargin">₹0</strong></div>
+                        </div>
+                        <button class="btn-trade btn-buy" id="tradeExecBtn" onclick="TradeUI.execute()">BUY</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PORTFOLIO TAB -->
+            <section class="tab-content" id="tab-portfolio">
+                <h2>Portfolio</h2>
+                <div class="portfolio-summary glass-card">
+                    <div class="ps-item"><span>Invested</span><strong id="pfInvested">₹0</strong></div>
+                    <div class="ps-item"><span>Current</span><strong id="pfCurrent">₹0</strong></div>
+                    <div class="ps-item"><span>P&L</span><strong id="pfPnl" class="pnl-val">₹0</strong></div>
+                    <div class="ps-item"><span>Day P&L</span><strong id="pfDayPnl" class="pnl-val">₹0</strong></div>
+                </div>
+                <div class="portfolio-grid">
+                    <div class="pf-section glass-card">
+                        <h3>Holdings (CNC)</h3>
+                        <table class="pf-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Qty</th>
+                                    <th>Avg</th>
+                                    <th>LTP</th>
+                                    <th>P&L</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="holdingsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pf-section glass-card">
+                        <h3>Positions (Intraday)</h3>
+                        <table class="pf-table">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Qty</th>
+                                    <th>Avg</th>
+                                    <th>LTP</th>
+                                    <th>P&L</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="positionsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="charts-row">
+                    <div class="chart-card glass-card">
+                        <h3>Sector Allocation</h3><svg id="pieChart" viewBox="0 0 200 200" width="200"
+                            height="200"></svg>
+                        <div id="pieLegend" class="pie-legend"></div>
+                    </div>
+                    <div class="chart-card glass-card">
+                        <h3>Portfolio Value</h3><canvas id="portfolioChart" width="450" height="200"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ORDERS TAB -->
+            <section class="tab-content" id="tab-orders">
+                <h2>Order Book</h2>
+                <div class="order-tabs">
+                    <button class="ot active" onclick="OrderUI.showSub('open')">Open</button>
+                    <button class="ot" onclick="OrderUI.showSub('executed')">Executed</button>
+                    <button class="ot" onclick="OrderUI.showSub('all')">All</button>
+                </div>
+                <table class="order-table glass-card">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Symbol</th>
+                            <th>Side</th>
+                            <th>Mode</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody"></tbody>
+                </table>
+            </section>
+
+            <!-- F&O TAB -->
+            <section class="tab-content" id="tab-fno">
+                <h2>Futures & Options</h2>
+                <div class="fno-controls glass-card">
+                    <select id="fnoUnderlying" onchange="FnOUI.loadChain()">
+                        <option value="NIFTY">NIFTY</option>
+                        <option value="BANKNIFTY">BANK NIFTY</option>
+                        <option value="RELIANCE">RELIANCE</option>
+                        <option value="TCS">TCS</option>
+                        <option value="INFY">INFY</option>
+                    </select>
+                    <select id="fnoExpiry" onchange="FnOUI.loadChain()">
+                        <option>27 Feb 2026</option>
+                        <option>27 Mar 2026</option>
+                        <option>24 Apr 2026</option>
+                    </select>
+                    <div class="fno-type-btns">
+                        <button class="active" onclick="FnOUI.setType('FUT')">Futures</button>
+                        <button onclick="FnOUI.setType('OPT')">Options</button>
+                    </div>
+                </div>
+                <div id="fnoFutPanel" class="fno-panel">
+                    <table class="fno-table glass-card">
+                        <thead>
+                            <tr>
+                                <th>Contract</th>
+                                <th>Lot</th>
+                                <th>LTP</th>
+                                <th>Change</th>
+                                <th>OI</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="futBody"></tbody>
+                    </table>
+                </div>
+                <div id="fnoOptPanel" class="fno-panel" style="display:none">
+                    <table class="option-chain glass-card">
+                        <thead>
+                            <tr>
+                                <th>Call LTP</th>
+                                <th>Call Δ</th>
+                                <th>Call OI</th>
+                                <th class="strike-col">Strike</th>
+                                <th>Put OI</th>
+                                <th>Put Δ</th>
+                                <th>Put LTP</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optBody"></tbody>
+                    </table>
+                </div>
+                <div class="fno-positions glass-card">
+                    <h3>F&O Positions</h3>
+                    <table class="pf-table">
+                        <thead>
+                            <tr>
+                                <th>Contract</th>
+                                <th>Type</th>
+                                <th>Lots</th>
+                                <th>Avg</th>
+                                <th>LTP</th>
+                                <th>P&L</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fnoPositionsBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- PREDICT TAB -->
+            <section class="tab-content" id="tab-predict">
+                <h2>Market Predictions</h2>
+                <div class="predict-stats glass-card">
+                    <div class="ps-item"><span>Total</span><strong id="predTotal">0</strong></div>
+                    <div class="ps-item"><span>Correct</span><strong id="predCorrect">0</strong></div>
+                    <div class="ps-item"><span>Accuracy</span><strong id="predAccuracy">0%</strong></div>
+                    <div class="ps-item"><span>Streak</span><strong id="predStreak">🔥 0</strong></div>
+                </div>
+                <div class="predict-form glass-card">
+                    <h3>New Prediction</h3>
+                    <select id="predStock">
+                        <option value="">Select Stock</option>
+                    </select>
+                    <div class="pred-btns">
+                        <button class="pred-up" onclick="Predict.submit('UP')">📈 UP</button>
+                        <button class="pred-down" onclick="Predict.submit('DOWN')">📉 DOWN</button>
+                    </div>
+                </div>
+                <div class="predict-history glass-card">
+                    <h3>History</h3>
+                    <div id="predHistory"></div>
+                </div>
+            </section>
+
+            <!-- QUIZ TAB -->
+            <section class="tab-content" id="tab-quiz">
+                <h2>Market Quiz</h2>
+                <div class="quiz-container glass-card" id="quizContainer">
+                    <div id="quizActive" style="display:none">
+                        <div class="quiz-progress"><span id="quizQNum">1/10</span>
+                            <div class="quiz-bar">
+                                <div class="quiz-fill" id="quizFill"></div>
+                            </div>
+                        </div>
+                        <p class="quiz-question" id="quizQ"></p>
+                        <div class="quiz-options" id="quizOpts"></div>
+                    </div>
+                    <div id="quizStart">
+                        <p>Test your market knowledge and earn XP!</p>
+                        <p class="quiz-xp-info">+50 XP per correct answer</p>
+                        <button class="btn-primary" onclick="Quiz.start()">Start Quiz (10 Questions)</button>
+                    </div>
+                    <div id="quizResult" style="display:none">
+                        <h3>Quiz Complete!</h3>
+                        <p class="quiz-score">Score: <span id="quizScore">0</span>/10</p>
+                        <p>XP Earned: <span id="quizXpEarned" class="gradient-text">+0</span></p>
+                        <button class="btn-primary" onclick="Quiz.start()">Play Again</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PROFILE TAB -->
+            <section class="tab-content" id="tab-profile">
+                <h2>Trader Profile</h2>
+                <div class="profile-header glass-card">
+                    <div class="profile-avatar" id="profileAvatar">🐂</div>
+                    <div class="profile-info">
+                        <h3 id="profileName">Trader</h3>
+                        <p id="profilePhone">+91 ••••••••••</p>
+                    </div>
+                    <div class="level-display">
+                        <span class="level-badge" id="profileLevel">Level 1</span>
+                        <div class="xp-bar">
+                            <div class="xp-fill" id="profileXpFill"></div>
+                        </div>
+                        <span class="xp-text" id="profileXpText">0 / 100 XP</span>
+                    </div>
+                </div>
+                <div class="profile-stats">
+                    <div class="stat-card glass-card"><span>💰</span>
+                        <h4>Capital</h4>
+                        <p id="statCapital">₹1,00,000</p>
+                    </div>
+                    <div class="stat-card glass-card"><span>📊</span>
+                        <h4>Trades</h4>
+                        <p id="statTrades">0</p>
+                    </div>
+                    <div class="stat-card glass-card"><span>🎯</span>
+                        <h4>Pred. Accuracy</h4>
+                        <p id="statPredAcc">0%</p>
+                    </div>
+                    <div class="stat-card glass-card"><span>⭐</span>
+                        <h4>Total XP</h4>
+                        <p id="statXp">0</p>
+                    </div>
+                </div>
+                <div class="achievements glass-card">
+                    <h3>Achievements</h3>
+                    <div class="badge-grid" id="badgeGrid"></div>
+                </div>
+            </section>
+
+            <!-- SETTINGS TAB -->
+            <section class="tab-content" id="tab-settings">
+                <h2>Settings</h2>
+                <div class="settings-group glass-card">
+                    <div class="setting-row"><span>Theme</span><select id="themeSelect"
+                            onchange="Theme.set(this.value)">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select></div>
+                    <div class="setting-row"><span>Auto-refresh Prices</span><label class="switch"><input
+                                type="checkbox" id="autoRefresh" checked onchange="Settings.toggleRefresh()"><span
+                                class="slider"></span></label></div>
+                    <div class="setting-row"><span>Sound Effects</span><label class="switch"><input type="checkbox"
+                                id="soundFx" onchange="Settings.toggleSound()"><span class="slider"></span></label>
+                    </div>
+                </div>
+                <div class="settings-group glass-card">
+                    <h3>Data Management</h3>
+                    <button class="btn-secondary" onclick="Settings.exportData()">📤 Export Data (JSON)</button>
+                    <button class="btn-secondary" onclick="document.getElementById('importFile').click()">📥 Import
+                        Data</button>
+                    <input type="file" id="importFile" accept=".json" style="display:none"
+                        onchange="Settings.importData(event)">
+                    <button class="btn-danger" onclick="Settings.resetAll()">🗑️ Reset Everything</button>
+                </div>
+                <div class="settings-group glass-card">
+                    <h3>Account</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:12px">Sign out and login with a different phone
+                        number.</p>
+                    <button class="btn-danger" onclick="App.logout()">🚪 Logout</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toastContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="engine.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
