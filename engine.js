@@ -98,6 +98,10 @@ const ACHIEVEMENTS = [
 /* ===== STATE MANAGER ===== */
 const State = {
     data: null,
+    currentPhone: null,
+    _key() {
+        return this.currentPhone ? 'paperbull_' + this.currentPhone : 'paperbull_state';
+    },
     defaults() {
         return {
             user: null,
@@ -121,18 +125,22 @@ const State = {
             autoRefresh: true,
             sound: false,
             introSeen: false,
-            priceSnapshots: {}
+            priceSnapshots: {},
+            cloudSyncId: null
         };
     },
-    load() {
+    load(phone) {
+        this.currentPhone = phone || null;
         try {
-            const d = localStorage.getItem('paperbull_state');
+            const d = localStorage.getItem(this._key());
             this.data = d ? { ...this.defaults(), ...JSON.parse(d) } : this.defaults();
         } catch (e) { this.data = this.defaults(); }
         return this.data;
     },
     save() {
-        try { localStorage.setItem('paperbull_state', JSON.stringify(this.data)); } catch (e) { }
+        try { localStorage.setItem(this._key(), JSON.stringify(this.data)); } catch (e) { }
+        // Trigger cloud sync if available
+        if (typeof CloudSync !== 'undefined' && CloudSync.debouncedSync) CloudSync.debouncedSync();
     },
     get(k) { return this.data[k]; },
     set(k, v) { this.data[k] = v; this.save(); },
