@@ -126,7 +126,8 @@ const State = {
             sound: false,
             introSeen: false,
             priceSnapshots: {},
-            cloudSyncId: null
+            cloudSyncId: null,
+            lastModified: Date.now()
         };
     },
     load(phone) {
@@ -138,6 +139,7 @@ const State = {
         return this.data;
     },
     save() {
+        this.data.lastModified = Date.now();
         try { localStorage.setItem(this._key(), JSON.stringify(this.data)); } catch (e) { }
         // Trigger cloud sync if available
         if (typeof CloudSync !== 'undefined' && CloudSync.debouncedSync) CloudSync.debouncedSync();
@@ -152,15 +154,17 @@ const Market = {
     stocks: {},
     indices: { nifty: { val: 22450, open: 22450, prev: 22380 }, sensex: { val: 73800, open: 73800, prev: 73650 }, banknifty: { val: 47200, open: 47200, prev: 47050 } },
     interval: null,
+    tickCount: 0,
 
     init() {
         const snap = State.get('priceSnapshots') || {};
         STOCKS.forEach(s => {
             const saved = snap[s.sym];
             const open = saved ? saved.open : s.base * (1 + (Math.random() - 0.5) * 0.01);
+            const ltp = saved ? saved.ltp : open;
             this.stocks[s.sym] = {
                 ...s,
-                ltp: saved ? saved.ltp : open,
+                ltp: ltp,
                 open: open,
                 prev: saved ? saved.prev : s.base,
                 high: saved ? saved.high : open,
@@ -169,10 +173,32 @@ const Market = {
                 volume: saved ? saved.volume : Math.floor(Math.random() * 5000000) + 500000,
                 bid: 0, ask: 0,
                 history: saved ? saved.history : [],
-                dayHistory: saved ? saved.dayHistory : []
+                dayHistory: saved ? saved.dayHistory : [],
+                candles: saved && saved.candles ? saved.candles : this._generateHistoricalCandles(s.base, s.vol, 30),
+                _candleOpen: ltp, _candleHigh: ltp, _candleLow: ltp, _candleTicks: 0
             };
             this._updateDerived(s.sym);
         });
+    },
+
+    _generateHistoricalCandles(basePrice, volatility, count) {
+        const candles = [];
+        let price = basePrice * (1 + (Math.random() - 0.5) * 0.05);
+        const now = Date.now();
+        for (let i = count; i > 0; i--) {
+            const o = price;
+            const move1 = price * volatility * (Math.random() - 0.5) * 2;
+            const move2 = price * volatility * (Math.random() - 0.5) * 2;
+            const h = Math.max(o, o + Math.abs(move1) * 1.5);
+            const l = Math.min(o, o - Math.abs(move2) * 1.5);
+            const c = o + (move1 + move2) * 0.3;
+            price = c;
+            candles.push({
+                o: +o.toFixed(2), h: +h.toFixed(2), l: +l.toFixed(2), c: +c.toFixed(2),
+                t: now - i * 20000, v: Math.floor(Math.random() * 100000) + 10000
+            });
+        }
+        return candles;
     },
 
     _updateDerived(sym) {
@@ -195,6 +221,7 @@ const Market = {
     },
 
     tick() {
+        this.tickCount++;
         const open = this.isMarketOpen();
         const drift = open ? 0.0001 : 0;
         Object.keys(this.stocks).forEach(sym => {
@@ -206,6 +233,19 @@ const Market = {
             if (open) s.volume += Math.floor(Math.random() * 50000);
             s.dayHistory.push(s.ltp);
             if (s.dayHistory.length > 200) s.dayHistory.shift();
+            // Build candle data
+            s._candleHigh = Math.max(s._candleHigh, s.ltp);
+            s._candleLow = Math.min(s._candleLow, s.ltp);
+            s._candleTicks++;
+            if (s._candleTicks >= 10) {
+                s.candles.push({
+                    o: +s._candleOpen.toFixed(2), h: +s._candleHigh.toFixed(2),
+                    l: +s._candleLow.toFixed(2), c: +s.ltp.toFixed(2),
+                    t: Date.now(), v: Math.floor(Math.random() * 100000) + 10000
+                });
+                if (s.candles.length > 60) s.candles.shift();
+                s._candleOpen = s.ltp; s._candleHigh = s.ltp; s._candleLow = s.ltp; s._candleTicks = 0;
+            }
             this._updateDerived(sym);
         });
         // Update indices
@@ -228,7 +268,7 @@ const Market = {
         const snap = {};
         Object.keys(this.stocks).forEach(sym => {
             const s = this.stocks[sym];
-            snap[sym] = { ltp: s.ltp, open: s.open, prev: s.prev, high: s.high, low: s.low, volume: s.volume, history: s.history, dayHistory: s.dayHistory.slice(-200) };
+            snap[sym] = { ltp: s.ltp, open: s.open, prev: s.prev, high: s.high, low: s.low, volume: s.volume, history: s.history, dayHistory: s.dayHistory.slice(-200), candles: s.candles.slice(-60) };
         });
         State.set('priceSnapshots', snap);
     },
