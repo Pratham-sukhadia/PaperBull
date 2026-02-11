@@ -93,15 +93,34 @@ const OTP = {
         const entered = Array.from(boxes).map(b => b.value).join('');
         if (entered === this.generatedOtp) {
             const phone = document.getElementById('phoneInput').value.trim();
+            State.load(phone);
             State.set('user', { phone, name: 'Trader_' + phone.slice(-4), joined: Date.now() });
             Toast.show('Welcome to PaperBull! 🎉', 'success');
-            if (State.get('introSeen')) { App.startDashboard(); } else { App.showIntro(); }
+            CloudSync.initSync().then(() => {
+                if (State.get('introSeen')) { App.startDashboard(); } else { App.showIntro(); }
+            });
         } else { Toast.show('Invalid OTP. Try again.', 'error'); }
     },
     resend() {
         this.generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
         document.getElementById('smsOtpDisplay').textContent = this.generatedOtp;
         Toast.show('New OTP sent', 'info');
+    },
+    toggleRestore() {
+        document.getElementById('restorePanel').classList.toggle('show');
+    },
+    async restoreFromCode() {
+        const code = document.getElementById('restoreSyncCode').value.trim();
+        if (!code) { Toast.show('Enter a sync code', 'error'); return; }
+        Toast.show('Fetching data from cloud...', 'info');
+        const data = await CloudSync.fetchByCode(code);
+        if (data && data.user) {
+            State.load(data.user.phone);
+            State.data = { ...State.defaults(), ...data, cloudSyncId: code };
+            State.save();
+            Toast.show('Data restored! Welcome back.', 'success');
+            App.startDashboard();
+        } else { Toast.show('Invalid sync code or no data found', 'error'); }
     }
 };
 
@@ -112,8 +131,13 @@ const App = {
         BG.init();
         Market.init();
         Theme.apply(State.get('theme'));
-        if (State.get('user')) { this.startDashboard(); }
-        // Init Lucide icons
+        if (State.get('user')) {
+            const phone = State.get('user').phone;
+            State.load(phone);
+            Market.init();
+            Theme.apply(State.get('theme'));
+            CloudSync.initSync().then(() => this.startDashboard());
+        }
         try { if (typeof lucide !== 'undefined') lucide.createIcons(); } catch (e) { }
     },
     showIntro() {
@@ -147,14 +171,15 @@ const App = {
     },
     logout() {
         if (!confirm('Logout and return to login screen?')) return;
+        CloudSync.syncUp();
         Market.stop();
-        State.set('user', null);
-        // Reset OTP form
+        State.currentPhone = null;
         document.getElementById('phoneInput').value = '';
         document.querySelectorAll('.otp-box').forEach(b => b.value = '');
         document.getElementById('smsAnim').classList.remove('show');
         document.getElementById('phoneStep').classList.add('active');
         document.getElementById('otpStep').classList.remove('active');
+        document.getElementById('restorePanel').classList.remove('show');
         this._switchScreen('otpScreen');
         Toast.show('Logged out successfully', 'info');
     },
@@ -700,15 +725,105 @@ const Settings = {
     },
     resetAll() {
         if (confirm('Delete all data? This cannot be undone.')) {
-            localStorage.removeItem('paperbull_state');
+            localStorage.removeItem(State._key());
             location.reload();
         }
     }
 };
 
+/* ===== CLOUD SYNC (jsonblob.com) ===== */
+const CloudSync = {
+    baseUrl: 'https://jsonblob.com/api/jsonBlob',
+    syncTimeout: null,
+    async createBlob(data) {
+        try {
+            const res = await fetch(this.baseUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const loc = res.headers.get('Location');
+            return loc ? loc.split('/').pop() : null;
+        } catch (e) { console.warn('Cloud create failed:', e); return null; }
+    },
+    async getBlob(id) {
+        try {
+            const res = await fetch(this.baseUrl + '/' + id);
+            if (res.ok) return await res.json();
+        } catch (e) { console.warn('Cloud fetch failed:', e); }
+        return null;
+    },
+    async updateBlob(id, data) {
+        try {
+            await fetch(this.baseUrl + '/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+        } catch (e) { console.warn('Cloud update failed:', e); }
+    },
+    async syncUp() {
+        const syncId = State.get('cloudSyncId');
+        if (!syncId) return;
+        this._setStatus('syncing', '☁️ Syncing...');
+        await this.updateBlob(syncId, State.data);
+        this._setStatus('synced', '✅ Synced just now');
+    },
+    async initSync() {
+        const existing = State.get('cloudSyncId');
+        if (existing) {
+            this._setStatus('syncing', '☁️ Checking cloud...');
+            const cloudData = await this.getBlob(existing);
+            if (cloudData && cloudData.user) {
+                if ((cloudData.totalTrades || 0) > (State.get('totalTrades') || 0) ||
+                    (cloudData.orders || []).length > (State.get('orders') || []).length) {
+                    State.data = { ...State.defaults(), ...cloudData, cloudSyncId: existing };
+                    State.save();
+                    Toast.show('Data synced from cloud ☁️', 'success');
+                }
+            }
+            this._setStatus('synced', '✅ Connected');
+        } else {
+            const id = await this.createBlob(State.data);
+            if (id) {
+                State.set('cloudSyncId', id);
+                Toast.show('Cloud sync enabled', 'success');
+            }
+        }
+        this._updateUI();
+    },
+    async fetchByCode(code) {
+        return await this.getBlob(code);
+    },
+    async forceSync() {
+        Toast.show('Syncing...', 'info');
+        await this.syncUp();
+        Toast.show('Sync complete', 'success');
+    },
+    copyCode() {
+        const code = State.get('cloudSyncId');
+        if (code) {
+            navigator.clipboard.writeText(code).then(() => Toast.show('Sync code copied!', 'success'))
+                .catch(() => { Toast.show('Code: ' + code, 'info'); });
+        }
+    },
+    debouncedSync() {
+        clearTimeout(this.syncTimeout);
+        this.syncTimeout = setTimeout(() => this.syncUp(), 8000);
+    },
+    _setStatus(cls, text) {
+        const el = document.getElementById('syncStatusText');
+        if (el) { el.className = 'sync-status ' + cls; el.textContent = text; }
+    },
+    _updateUI() {
+        const code = State.get('cloudSyncId');
+        const el = document.getElementById('syncCodeText');
+        if (el) el.textContent = code || 'Not synced';
+    }
+};
+
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', () => App.init());
-// Handle qty/price changes for trade summary
 document.addEventListener('input', e => {
     if (e.target.id === 'tradeQty' || e.target.id === 'tradePrice') TradeUI.updateSummary();
 });
