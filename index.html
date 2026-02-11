@@ -58,6 +58,15 @@
                 <button class="btn-primary" onclick="OTP.verifyOtp()">Verify & Start Trading</button>
                 <button class="btn-link" onclick="OTP.resend()">Resend OTP</button>
             </div>
+            <div class="restore-link">
+                <button onclick="OTP.toggleRestore()">🔄 Restore data from another device?</button>
+            </div>
+            <div class="restore-panel" id="restorePanel">
+                <label style="display:block;margin-bottom:8px;color:var(--text-secondary);font-size:0.85rem">Enter your
+                    Sync Code</label>
+                <input type="text" id="restoreSyncCode" placeholder="Paste sync code here...">
+                <button class="btn-primary" onclick="OTP.restoreFromCode()" style="width:100%">Restore & Login</button>
+            </div>
         </div>
     </div>
 
@@ -518,6 +527,18 @@
                     <input type="file" id="importFile" accept=".json" style="display:none"
                         onchange="Settings.importData(event)">
                     <button class="btn-danger" onclick="Settings.resetAll()">🗑️ Reset Everything</button>
+                </div>
+                <div class="settings-group glass-card">
+                    <h3>☁️ Cloud Sync</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:8px;font-size:0.85rem">Sync your data across
+                        devices. Share this code on your other device to restore all data.</p>
+                    <div id="syncInfo">
+                        <div class="sync-code-display" id="syncCodeDisplay"><span id="syncCodeText">Not
+                                synced</span><button class="copy-btn" onclick="CloudSync.copyCode()">Copy</button></div>
+                        <div class="sync-status" id="syncStatusText"></div>
+                        <button class="btn-secondary" onclick="CloudSync.forceSync()" style="margin-top:8px">🔄 Sync
+                            Now</button>
+                    </div>
                 </div>
                 <div class="settings-group glass-card">
                     <h3>Account</h3>
