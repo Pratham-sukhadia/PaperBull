@@ -94,9 +94,14 @@ const OTP = {
         if (entered === this.generatedOtp) {
             const phone = document.getElementById('phoneInput').value.trim();
             State.load(phone);
-            State.set('user', { phone, name: 'Trader_' + phone.slice(-4), joined: Date.now() });
+            // Only set user info if this is a brand new account (don't overwrite returning users)
+            if (!State.get('user')) {
+                State.set('user', { phone, name: 'Trader_' + phone.slice(-4), joined: Date.now() });
+            }
             Toast.show('Welcome to PaperBull! 🎉', 'success');
             CloudSync.initSync().then(() => {
+                // Re-init market with potentially updated price snapshots from cloud
+                Market.init();
                 if (State.get('introSeen')) { App.startDashboard(); } else { App.showIntro(); }
             });
         } else { Toast.show('Invalid OTP. Try again.', 'error'); }
@@ -118,6 +123,8 @@ const OTP = {
             State.load(data.user.phone);
             State.data = { ...State.defaults(), ...data, cloudSyncId: code };
             State.save();
+            // Re-init market engine with the restored price snapshots
+            Market.init();
             Toast.show('Data restored! Welcome back.', 'success');
             App.startDashboard();
         } else { Toast.show('Invalid sync code or no data found', 'error'); }
@@ -240,7 +247,7 @@ const Theme = {
 
 /* ===== MARKET UI ===== */
 const MarketUI = {
-    init() { this.render(); },
+    init() { this.render(); this.renderTopMovers(); },
     render() {
         const body = document.getElementById('stockTableBody');
         if (!body) return;
@@ -254,22 +261,40 @@ const MarketUI = {
         body.innerHTML = stocks.map(s => {
             const cls = s.change >= 0 ? 'pnl-pos' : 'pnl-neg';
             const arrow = s.change >= 0 ? '▲' : '▼';
-            return `<tr onclick="TradeUI.openModal('${s.sym}')">
+            const selected = TradeUI.currentSym === s.sym ? 'stock-row-selected' : '';
+            return `<tr class="${selected}" onclick="TradeUI.selectStock('${s.sym}')">
         <td><strong>${s.sym}</strong><br><small style="color:var(--text-muted)">${s.name}</small></td>
-        <td><span style="font-size:0.75rem;padding:2px 6px;border-radius:4px;background:${s.ex === 'NSE' ? 'rgba(59,130,246,0.15)' : 'rgba(139,92,246,0.15)'};color:${s.ex === 'NSE' ? 'var(--accent-blue)' : 'var(--accent-purple)'}">${s.ex}</span></td>
         <td style="font-family:'JetBrains Mono',monospace;font-weight:600">₹${s.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td class="${cls}" style="font-family:'JetBrains Mono',monospace">${arrow} ${Math.abs(s.change).toFixed(2)}</td>
         <td class="${cls}" style="font-family:'JetBrains Mono',monospace">${s.changePct >= 0 ? '+' : ''}${s.changePct.toFixed(2)}%</td>
-        <td style="font-family:'JetBrains Mono',monospace">₹${s.open.toFixed(2)}</td>
-        <td style="font-family:'JetBrains Mono',monospace">₹${s.high.toFixed(2)}</td>
-        <td style="font-family:'JetBrains Mono',monospace">₹${s.low.toFixed(2)}</td>
         <td style="font-family:'JetBrains Mono',monospace">${(s.volume / 1000000).toFixed(2)}M</td>
-        <td><button class="btn-sm btn-buy" onclick="event.stopPropagation();TradeUI.openModal('${s.sym}')">Trade</button></td>
       </tr>`;
         }).join('');
     },
+    renderTopMovers() {
+        const moversEl = document.getElementById('topMovers');
+        if (!moversEl) return;
+        const stocks = Object.values(Market.stocks);
+        const sorted = [...stocks].sort((a, b) => b.changePct - a.changePct);
+        const gainers = sorted.slice(0, 3);
+        const losers = sorted.slice(-3).reverse();
+        moversEl.innerHTML =
+            `<div class="movers-section"><div class="movers-label">🔺 Top Gainers</div><div class="movers-cards">${gainers.map(s =>
+                `<div class="mover-card mover-gain glass-card" onclick="TradeUI.selectStock('${s.sym}')">
+                <span class="mover-sym">${s.sym}</span>
+                <span class="mover-price">₹${s.ltp.toFixed(2)}</span>
+                <span class="mover-chg pnl-pos">+${s.changePct.toFixed(2)}%</span>
+            </div>`).join('')}</div></div>` +
+            `<div class="movers-section"><div class="movers-label">🔻 Top Losers</div><div class="movers-cards">${losers.map(s =>
+                `<div class="mover-card mover-loss glass-card" onclick="TradeUI.selectStock('${s.sym}')">
+                <span class="mover-sym">${s.sym}</span>
+                <span class="mover-price">₹${s.ltp.toFixed(2)}</span>
+                <span class="mover-chg pnl-neg">${s.changePct.toFixed(2)}%</span>
+            </div>`).join('')}</div></div>`;
+    },
     refresh() {
         this.render();
+        this.renderTopMovers();
         // Update indices
         const ni = Market.indices.nifty;
         document.getElementById('niftyVal').textContent = ni.val.toLocaleString('en-IN', { minimumFractionDigits: 2 });
@@ -291,33 +316,69 @@ const MarketUI = {
         const bEl = document.getElementById('bniftyChg');
         bEl.textContent = (bChg >= 0 ? '+' : '') + bChg.toFixed(2) + '%';
         bEl.className = 'idx-chg ' + (bChg >= 0 ? 'pnl-pos' : 'pnl-neg');
+
+        // Update detail panel if a stock is selected
+        if (TradeUI.currentSym) TradeUI._refreshDetailPanel();
     },
     filterExchange() { this.render(); },
     filterSector() { this.render(); },
     search() { this.render(); }
 };
 
-/* ===== TRADE UI ===== */
+/* ===== TRADE UI (Inline Detail Panel) ===== */
 const TradeUI = {
-    currentSym: null, side: 'BUY', mode: 'INTRADAY', orderType: 'MARKET',
-    openModal(sym) {
+    currentSym: null, side: 'BUY', mode: 'INTRADAY', orderType: 'MARKET', chartType: 'line',
+    selectStock(sym) {
         this.currentSym = sym;
         const s = Market.stocks[sym];
-        document.getElementById('tradeSymbol').textContent = sym;
-        document.getElementById('tradeLtp').textContent = '₹' + s.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-        document.getElementById('tradeLtp').className = 'trade-ltp ' + (s.change >= 0 ? 'pnl-pos' : 'pnl-neg');
+        document.getElementById('detailPlaceholder').style.display = 'none';
+        document.getElementById('detailContent').style.display = 'block';
+        document.getElementById('detailSymbol').textContent = sym;
+        document.getElementById('detailName').textContent = s.name;
+        document.getElementById('detailExchange').textContent = s.ex;
         document.getElementById('tradeQty').value = 1;
         document.getElementById('tradePrice').value = s.ltp.toFixed(2);
         this.setSide('BUY');
-        this.drawChart(sym);
+        this._refreshDetailPanel();
+        this.drawLineChart(sym);
+        this.drawCandleChart(sym);
         this.updateSummary();
-        document.getElementById('tradeModal').classList.add('open');
+        // Re-render market list to show selection
+        MarketUI.render();
     },
-    closeModal() { document.getElementById('tradeModal').classList.remove('open'); },
+    // Backwards compat: openModal now redirects to selectStock
+    openModal(sym) { this.selectStock(sym); },
+    closeModal() { /* no-op for inline */ },
+    _refreshDetailPanel() {
+        const s = Market.stocks[this.currentSym]; if (!s) return;
+        const ltpEl = document.getElementById('detailLtp');
+        ltpEl.textContent = '₹' + s.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        const chgEl = document.getElementById('detailChange');
+        const sign = s.change >= 0 ? '+' : '';
+        chgEl.textContent = sign + s.change.toFixed(2) + ' (' + sign + s.changePct.toFixed(2) + '%)';
+        chgEl.className = 'detail-change ' + (s.change >= 0 ? 'pnl-pos' : 'pnl-neg');
+        ltpEl.className = 'detail-ltp ' + (s.change >= 0 ? 'pnl-pos' : 'pnl-neg');
+        document.getElementById('detailOpen').textContent = '₹' + s.open.toFixed(2);
+        document.getElementById('detailHigh').textContent = '₹' + s.high.toFixed(2);
+        document.getElementById('detailLow').textContent = '₹' + s.low.toFixed(2);
+        document.getElementById('detailVol').textContent = (s.volume / 1000000).toFixed(2) + 'M';
+        document.getElementById('detailBid').textContent = '₹' + s.bid.toFixed(2);
+        document.getElementById('detailAsk').textContent = '₹' + s.ask.toFixed(2);
+        this.drawLineChart(this.currentSym);
+        this.drawCandleChart(this.currentSym);
+        this.updateSummary();
+    },
+    setChartType(type) {
+        this.chartType = type;
+        document.querySelectorAll('.dct').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.dct:${type === 'line' ? 'first-child' : 'last-child'}`).classList.add('active');
+        document.getElementById('detailLineChart').style.display = type === 'line' ? 'block' : 'none';
+        document.getElementById('detailCandleChart').style.display = type === 'candle' ? 'block' : 'none';
+    },
     setSide(side) {
         this.side = side;
         document.querySelectorAll('.tt').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.tt[data-side="${side}"]`).classList.add('active');
+        document.querySelectorAll(`.tt[data-side="${side}"]`).forEach(b => b.classList.add('active'));
         const btn = document.getElementById('tradeExecBtn');
         btn.textContent = side; btn.className = 'btn-trade ' + (side === 'BUY' ? 'btn-buy' : 'btn-sell');
         this.updateSummary();
@@ -338,43 +399,110 @@ const TradeUI = {
         document.getElementById('tradeMargin').textContent = '₹' + (val / leverage).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     },
     execute() {
+        if (!this.currentSym) { Toast.show('Select a stock first', 'error'); return; }
         const qty = document.getElementById('tradeQty').value;
         const limitPrice = document.getElementById('tradePrice').value;
         const result = Trading.placeOrder(this.currentSym, this.side, qty, this.mode, this.orderType, limitPrice);
         if (result.ok) {
             Toast.show(`${this.side} ${qty} ${this.currentSym} @ ₹${result.order.price.toFixed(2)}`, 'success');
-            this.closeModal();
         } else {
             Toast.show(result.msg, 'error');
         }
     },
-    drawChart(sym) {
-        const canvas = document.getElementById('tradeChart');
+    drawLineChart(sym) {
+        const canvas = document.getElementById('detailLineChart');
+        if (!canvas) return;
         const ctx = canvas.getContext('2d');
         const s = Market.stocks[sym];
         const data = s.dayHistory.length > 2 ? s.dayHistory : [s.open, s.ltp];
         const w = canvas.width, h = canvas.height;
         ctx.clearRect(0, 0, w, h);
+        const pad = { l: 55, r: 10, t: 10, b: 25 };
+        const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
         const min = Math.min(...data) * 0.999;
         const max = Math.max(...data) * 1.001;
         const range = max - min || 1;
-        // Grid
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(0, h * i / 4); ctx.lineTo(w, h * i / 4); ctx.stroke(); }
+        // Grid + Y labels
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ch * i / 4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+            ctx.fillText('₹' + (max - (max - min) * i / 4).toFixed(0), 2, y + 4);
+        }
         // Line
         const up = data[data.length - 1] >= data[0];
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
         grad.addColorStop(0, up ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.beginPath();
-        data.forEach((v, i) => { const x = i / (data.length - 1) * w; const y = h - (v - min) / range * h; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+        data.forEach((v, i) => {
+            const x = pad.l + i / (data.length - 1) * cw;
+            const y = pad.t + ch - (v - min) / range * ch;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
         ctx.strokeStyle = up ? '#10b981' : '#ef4444';
         ctx.lineWidth = 2;
         ctx.stroke();
         // Fill
-        ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+        const lastX = pad.l + cw;
+        ctx.lineTo(lastX, h - pad.b);
+        ctx.lineTo(pad.l, h - pad.b);
+        ctx.closePath();
         ctx.fillStyle = grad; ctx.fill();
+        // Current price line
+        const curY = pad.t + ch - (s.ltp - min) / range * ch;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = up ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad.l, curY); ctx.lineTo(w - pad.r, curY); ctx.stroke();
+        ctx.setLineDash([]);
+    },
+    drawCandleChart(sym) {
+        const canvas = document.getElementById('detailCandleChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const s = Market.stocks[sym];
+        const candles = s.candles || [];
+        if (candles.length < 2) return;
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const pad = { l: 55, r: 10, t: 10, b: 25 };
+        const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+        const allPrices = candles.flatMap(c => [c.h, c.l]);
+        const min = Math.min(...allPrices) * 0.999;
+        const max = Math.max(...allPrices) * 1.001;
+        const range = max - min || 1;
+        // Grid + Y labels
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ch * i / 4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+            ctx.fillText('₹' + (max - (max - min) * i / 4).toFixed(0), 2, y + 4);
+        }
+        // Candles
+        const candleW = Math.max(3, cw / candles.length * 0.7);
+        const gap = cw / candles.length;
+        candles.forEach((c, i) => {
+            const x = pad.l + i * gap + gap / 2;
+            const up = c.c >= c.o;
+            const color = up ? '#10b981' : '#ef4444';
+            // Wick
+            const highY = pad.t + ch - (c.h - min) / range * ch;
+            const lowY = pad.t + ch - (c.l - min) / range * ch;
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(x, highY); ctx.lineTo(x, lowY); ctx.stroke();
+            // Body
+            const openY = pad.t + ch - (c.o - min) / range * ch;
+            const closeY = pad.t + ch - (c.c - min) / range * ch;
+            const bodyTop = Math.min(openY, closeY);
+            const bodyHeight = Math.max(1, Math.abs(closeY - openY));
+            ctx.fillStyle = color;
+            ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyHeight);
+        });
     }
 };
 
@@ -395,7 +523,7 @@ const PortfolioUI = {
                 const cls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
                 return `<tr><td>${h.sym}</td><td>${h.qty}</td><td>₹${h.avg.toFixed(2)}</td><td>₹${s.ltp.toFixed(2)}</td>
         <td class="${cls}">₹${pnl.toFixed(2)}</td>
-        <td><button class="btn-sm btn-sell" onclick="TradeUI.currentSym='${h.sym}';TradeUI.side='SELL';TradeUI.mode='CNC';TradeUI.openModal('${h.sym}')">Sell</button></td></tr>`;
+        <td><button class="btn-sm btn-sell" onclick="TradeUI.currentSym='${h.sym}';TradeUI.side='SELL';TradeUI.mode='CNC';TradeUI.selectStock('${h.sym}');UI.showTab('market')">Sell</button></td></tr>`;
             }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No holdings</td></tr>';
         }
         // Positions
@@ -408,7 +536,7 @@ const PortfolioUI = {
                 const cls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
                 return `<tr><td>${p.sym}</td><td>${p.qty}</td><td>₹${p.avg.toFixed(2)}</td><td>₹${s.ltp.toFixed(2)}</td>
         <td class="${cls}">₹${pnl.toFixed(2)}</td>
-        <td><button class="btn-sm btn-sell" onclick="TradeUI.currentSym='${p.sym}';TradeUI.side='SELL';TradeUI.mode='INTRADAY';TradeUI.openModal('${p.sym}')">Exit</button></td></tr>`;
+        <td><button class="btn-sm btn-sell" onclick="TradeUI.currentSym='${p.sym}';TradeUI.side='SELL';TradeUI.mode='INTRADAY';TradeUI.selectStock('${p.sym}');UI.showTab('market')">Exit</button></td></tr>`;
             }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">No positions</td></tr>';
         }
         const totalPnl = current - invested;
@@ -418,10 +546,15 @@ const PortfolioUI = {
         const dpEl = document.getElementById('pfDayPnl'); if (dpEl) { dpEl.textContent = (dayPnl >= 0 ? '+' : '') + '₹' + dayPnl.toFixed(0); dpEl.className = 'pnl-val ' + (dayPnl >= 0 ? 'pnl-pos' : 'pnl-neg'); }
         this.drawPieChart(d);
         this.drawPortfolioChart(d);
+        this.drawCandlestickPnL(d);
+        this.drawAllocationBars(d);
     },
     drawPieChart(d) {
-        const svg = document.getElementById('pieChart'); if (!svg) return;
+        const canvas = document.getElementById('pieChart'); if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         const legend = document.getElementById('pieLegend'); if (!legend) return;
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
         const sectors = {};
         d.holdings.forEach(h => {
             const s = Market.stocks[h.sym]; if (!s) return;
@@ -430,50 +563,194 @@ const PortfolioUI = {
         });
         const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
         const entries = Object.entries(sectors);
-        if (entries.length === 0) { svg.innerHTML = '<text x="100" y="105" fill="var(--text-muted)" text-anchor="middle" font-size="12">No holdings</text>'; legend.innerHTML = ''; return; }
+        const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 15, r = R * 0.55;
+        if (entries.length === 0) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('No holdings yet', cx, cy);
+            legend.innerHTML = ''; return;
+        }
         const total = entries.reduce((s, e) => s + e[1], 0);
-        let angle = 0; svg.innerHTML = ''; legend.innerHTML = '';
+        let angle = -Math.PI / 2;
+        legend.innerHTML = '';
         entries.forEach(([sec, val], i) => {
             const pct = val / total;
-            const a1 = angle; const a2 = angle + pct * Math.PI * 2;
-            const x1 = 100 + 80 * Math.cos(a1); const y1 = 100 + 80 * Math.sin(a1);
-            const x2 = 100 + 80 * Math.cos(a2); const y2 = 100 + 80 * Math.sin(a2);
-            const large = pct > 0.5 ? 1 : 0;
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', `M100,100 L${x1},${y1} A80,80 0 ${large},1 ${x2},${y2} Z`);
-            path.setAttribute('fill', colors[i % colors.length]);
-            path.setAttribute('opacity', '0.85');
-            svg.appendChild(path);
-            angle = a2;
-            legend.innerHTML += `<div class="pie-legend-item"><span class="dot" style="background:${colors[i % colors.length]}"></span>${sec} ${(pct * 100).toFixed(0)}%</div>`;
+            const sweep = pct * Math.PI * 2;
+            const color = colors[i % colors.length];
+            // Draw arc
+            ctx.beginPath();
+            ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+            ctx.arc(cx, cy, R, angle, angle + sweep);
+            ctx.arc(cx, cy, r, angle + sweep, angle, true);
+            ctx.closePath();
+            ctx.fillStyle = color; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
+            // Stroke
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+            angle += sweep;
+            legend.innerHTML += `<div class="pie-legend-item"><span class="dot" style="background:${color}"></span>${sec} ${(pct * 100).toFixed(0)}%</div>`;
         });
+        // Center text
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = 'bold 16px JetBrains Mono, monospace'; ctx.textAlign = 'center';
+        ctx.fillText('₹' + (total / 1000).toFixed(1) + 'K', cx, cy - 4);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillText('Total Value', cx, cy + 14);
     },
     drawPortfolioChart(d) {
         const canvas = document.getElementById('portfolioChart'); if (!canvas) return;
         const ctx = canvas.getContext('2d');
         const data = d.portfolioHistory.map(p => p.v);
-        if (data.length < 2) return;
         const w = canvas.width, h = canvas.height;
         ctx.clearRect(0, 0, w, h);
+        if (data.length < 2) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('Make trades to see portfolio trend', w / 2, h / 2); return;
+        }
+        const pad = { l: 60, r: 10, t: 15, b: 30 };
+        const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
         const min = Math.min(...data) * 0.98;
         const max = Math.max(...data) * 1.02;
         const range = max - min || 1;
         // Grid + labels
-        ctx.fillStyle = 'var(--text-muted)'; ctx.font = '10px JetBrains Mono';
-        for (let i = 0; i < 5; i++) {
-            const y = h * i / 4;
-            ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-            ctx.fillText('₹' + (max - (max - min) * i / 4).toFixed(0), 2, y + 12);
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ch * i / 4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+            ctx.fillText('₹' + ((max - (max - min) * i / 4) / 1000).toFixed(1) + 'K', 2, y + 4);
+        }
+        // Time labels
+        const timestamps = d.portfolioHistory.map(p => p.t);
+        const labelCount = Math.min(5, data.length);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.textAlign = 'center';
+        for (let i = 0; i < labelCount; i++) {
+            const idx = Math.floor(i / (labelCount - 1) * (timestamps.length - 1));
+            const x = pad.l + idx / (data.length - 1) * cw;
+            const dt = new Date(timestamps[idx]);
+            ctx.fillText(dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }), x, h - 5);
         }
         // Line
         const up = data[data.length - 1] >= data[0];
         ctx.beginPath();
-        data.forEach((v, i) => { const x = i / (data.length - 1) * w; const y = h - (v - min) / range * h; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
-        ctx.strokeStyle = up ? '#10b981' : '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
-        const grad = ctx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, up ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)');
+        data.forEach((v, i) => {
+            const x = pad.l + i / (data.length - 1) * cw;
+            const y = pad.t + ch - (v - min) / range * ch;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = up ? '#10b981' : '#ef4444'; ctx.lineWidth = 2.5; ctx.stroke();
+        // Gradient fill
+        const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+        grad.addColorStop(0, up ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+        ctx.lineTo(pad.l + cw, h - pad.b); ctx.lineTo(pad.l, h - pad.b); ctx.closePath();
+        ctx.fillStyle = grad; ctx.fill();
+        // End dot
+        const lastY = pad.t + ch - (data[data.length - 1] - min) / range * ch;
+        ctx.beginPath(); ctx.arc(pad.l + cw, lastY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = up ? '#10b981' : '#ef4444'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    },
+    drawCandlestickPnL(d) {
+        const canvas = document.getElementById('pnlCandleChart'); if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        // Generate daily P&L candle-like data from portfolio history
+        const hist = d.portfolioHistory;
+        if (hist.length < 3) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('Trade to see P&L candles', w / 2, h / 2); return;
+        }
+        // Group into segments (simulate daily candles)
+        const segSize = Math.max(2, Math.floor(hist.length / 20));
+        const candles = [];
+        for (let i = 0; i < hist.length; i += segSize) {
+            const seg = hist.slice(i, i + segSize);
+            const vals = seg.map(s => s.v);
+            candles.push({
+                o: vals[0], h: Math.max(...vals), l: Math.min(...vals), c: vals[vals.length - 1],
+                t: seg[0].t
+            });
+        }
+        if (candles.length < 2) return;
+        const pad = { l: 60, r: 10, t: 15, b: 30 };
+        const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+        const allVals = candles.flatMap(c => [c.h, c.l]);
+        const min = Math.min(...allVals) * 0.98;
+        const max = Math.max(...allVals) * 1.02;
+        const range = max - min || 1;
+        // Grid
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + ch * i / 4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+            ctx.fillText('₹' + ((max - (max - min) * i / 4) / 1000).toFixed(1) + 'K', 2, y + 4);
+        }
+        // Candles
+        const candleW = Math.max(4, cw / candles.length * 0.6);
+        const gap = cw / candles.length;
+        candles.forEach((c, i) => {
+            const x = pad.l + i * gap + gap / 2;
+            const up = c.c >= c.o;
+            const color = up ? '#10b981' : '#ef4444';
+            const highY = pad.t + ch - (c.h - min) / range * ch;
+            const lowY = pad.t + ch - (c.l - min) / range * ch;
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(x, highY); ctx.lineTo(x, lowY); ctx.stroke();
+            const openY = pad.t + ch - (c.o - min) / range * ch;
+            const closeY = pad.t + ch - (c.c - min) / range * ch;
+            const bodyTop = Math.min(openY, closeY);
+            const bodyH = Math.max(2, Math.abs(closeY - openY));
+            ctx.fillStyle = color;
+            ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+        });
+    },
+    drawAllocationBars(d) {
+        const canvas = document.getElementById('allocationChart'); if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width, h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const holdings = d.holdings.map(hd => {
+            const s = Market.stocks[hd.sym];
+            return s ? { sym: hd.sym, value: s.ltp * hd.qty, pnl: (s.ltp - hd.avg) * hd.qty } : null;
+        }).filter(Boolean).sort((a, b) => b.value - a.value);
+        if (holdings.length === 0) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '13px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('No holdings to display', w / 2, h / 2); return;
+        }
+        const total = holdings.reduce((s, h) => s + h.value, 0);
+        const pad = { l: 90, r: 20, t: 15, b: 10 };
+        const cw = w - pad.l - pad.r;
+        const barH = Math.min(28, (h - pad.t - pad.b) / holdings.length - 6);
+        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16'];
+        holdings.slice(0, 8).forEach((hd, i) => {
+            const pct = hd.value / total;
+            const y = pad.t + i * (barH + 6);
+            const bw = pct * cw;
+            // Label
+            ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText(hd.sym, pad.l - 8, y + barH / 2 + 4);
+            // Bar background
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(pad.l, y, cw, barH);
+            // Bar
+            const color = colors[i % colors.length];
+            const barGrad = ctx.createLinearGradient(pad.l, 0, pad.l + bw, 0);
+            barGrad.addColorStop(0, color);
+            barGrad.addColorStop(1, color + '88');
+            ctx.fillStyle = barGrad;
+            ctx.beginPath();
+            ctx.roundRect(pad.l, y, bw, barH, 4);
+            ctx.fill();
+            // Percentage text
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 10px JetBrains Mono'; ctx.textAlign = 'left';
+            if (bw > 40) {
+                ctx.fillText((pct * 100).toFixed(0) + '%', pad.l + bw - 32, y + barH / 2 + 4);
+            } else {
+                ctx.fillText((pct * 100).toFixed(0) + '%', pad.l + bw + 6, y + barH / 2 + 4);
+            }
+        });
     }
 };
 
@@ -775,11 +1052,18 @@ const CloudSync = {
             this._setStatus('syncing', '☁️ Checking cloud...');
             const cloudData = await this.getBlob(existing);
             if (cloudData && cloudData.user) {
-                if ((cloudData.totalTrades || 0) > (State.get('totalTrades') || 0) ||
-                    (cloudData.orders || []).length > (State.get('orders') || []).length) {
+                const cloudTime = cloudData.lastModified || 0;
+                const localTime = State.get('lastModified') || 0;
+                if (cloudTime > localTime) {
+                    // Cloud has newer data — pull it down
                     State.data = { ...State.defaults(), ...cloudData, cloudSyncId: existing };
-                    State.save();
+                    // Save locally without triggering another cloud sync
+                    State.data.lastModified = cloudTime;
+                    try { localStorage.setItem(State._key(), JSON.stringify(State.data)); } catch (e) { }
                     Toast.show('Data synced from cloud ☁️', 'success');
+                } else if (localTime > cloudTime) {
+                    // Local is newer — push to cloud
+                    await this.updateBlob(existing, State.data);
                 }
             }
             this._setStatus('synced', '✅ Connected');
