@@ -183,6 +183,10 @@
                         <input type="text" id="stockSearch" placeholder="Search stocks..." oninput="MarketUI.search()">
                     </div>
                 </div>
+
+                <!-- Top Movers (Gainers & Losers) -->
+                <div class="top-movers-row" id="topMovers"></div>
+
                 <div class="indices-bar">
                     <div class="index-card glass-card" id="niftyCard"><span class="idx-name">NIFTY 50</span><span
                             class="idx-val" id="niftyVal">22,450.00</span><span class="idx-chg"
@@ -194,69 +198,100 @@
                             class="idx-val" id="bniftyVal">47,200.00</span><span class="idx-chg"
                             id="bniftyChg">+0.00%</span></div>
                 </div>
-                <div class="stock-table-wrap">
-                    <table class="stock-table">
-                        <thead>
-                            <tr>
-                                <th>Symbol</th>
-                                <th>Exchange</th>
-                                <th>LTP</th>
-                                <th>Change</th>
-                                <th>%</th>
-                                <th>Open</th>
-                                <th>High</th>
-                                <th>Low</th>
-                                <th>Volume</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="stockTableBody"></tbody>
-                    </table>
+
+                <!-- Split Layout: Stock List + Detail Panel -->
+                <div class="market-split-layout">
+                    <div class="market-list-side">
+                        <div class="stock-table-wrap">
+                            <table class="stock-table">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>LTP</th>
+                                        <th>Change</th>
+                                        <th>%</th>
+                                        <th>Volume</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="stock-detail-side" id="stockDetailPanel">
+                        <div class="detail-placeholder" id="detailPlaceholder">
+                            <div class="detail-placeholder-icon">📈</div>
+                            <p>Select a stock to view details, charts & trade</p>
+                        </div>
+                        <div class="detail-content" id="detailContent" style="display:none">
+                            <!-- Stock Info Header -->
+                            <div class="detail-stock-header">
+                                <div class="detail-stock-info">
+                                    <h3 id="detailSymbol">RELIANCE</h3>
+                                    <span class="detail-stock-name" id="detailName">Reliance Industries</span>
+                                    <span class="detail-exchange-badge" id="detailExchange">NSE</span>
+                                </div>
+                                <div class="detail-stock-price">
+                                    <span class="detail-ltp" id="detailLtp">₹2,480.00</span>
+                                    <span class="detail-change" id="detailChange">+12.50 (+0.51%)</span>
+                                </div>
+                            </div>
+                            <!-- Chart Tabs -->
+                            <div class="detail-chart-tabs">
+                                <button class="dct active" onclick="TradeUI.setChartType('line')">Line</button>
+                                <button class="dct" onclick="TradeUI.setChartType('candle')">Candlestick</button>
+                            </div>
+                            <!-- Charts -->
+                            <div class="detail-chart-area">
+                                <canvas id="detailLineChart" width="600" height="220"></canvas>
+                                <canvas id="detailCandleChart" width="600" height="220" style="display:none"></canvas>
+                            </div>
+                            <!-- Key Stats -->
+                            <div class="detail-stats-grid">
+                                <div class="detail-stat"><span>Open</span><strong id="detailOpen">₹0</strong></div>
+                                <div class="detail-stat"><span>High</span><strong id="detailHigh">₹0</strong></div>
+                                <div class="detail-stat"><span>Low</span><strong id="detailLow">₹0</strong></div>
+                                <div class="detail-stat"><span>Volume</span><strong id="detailVol">0</strong></div>
+                                <div class="detail-stat"><span>Bid</span><strong id="detailBid">₹0</strong></div>
+                                <div class="detail-stat"><span>Ask</span><strong id="detailAsk">₹0</strong></div>
+                            </div>
+                            <!-- Inline Trade Form -->
+                            <div class="inline-trade-form glass-card">
+                                <div class="trade-tabs">
+                                    <button class="tt active" data-side="BUY"
+                                        onclick="TradeUI.setSide('BUY')">BUY</button>
+                                    <button class="tt" data-side="SELL" onclick="TradeUI.setSide('SELL')">SELL</button>
+                                </div>
+                                <div class="trade-form">
+                                    <div class="trade-mode-select">
+                                        <label><input type="radio" name="tradeMode" value="INTRADAY" checked
+                                                onchange="TradeUI.setMode(this.value)"> Intraday (5x)</label>
+                                        <label><input type="radio" name="tradeMode" value="CNC"
+                                                onchange="TradeUI.setMode(this.value)"> CNC</label>
+                                    </div>
+                                    <div class="trade-type-select">
+                                        <label><input type="radio" name="orderType" value="MARKET" checked
+                                                onchange="TradeUI.setOrderType(this.value)"> Market</label>
+                                        <label><input type="radio" name="orderType" value="LIMIT"
+                                                onchange="TradeUI.setOrderType(this.value)"> Limit</label>
+                                    </div>
+                                    <div class="form-row">
+                                        <label>Qty</label><input type="number" id="tradeQty" min="1" value="1">
+                                    </div>
+                                    <div class="form-row limit-row" id="limitRow" style="display:none">
+                                        <label>Price</label><input type="number" id="tradePrice" step="0.05">
+                                    </div>
+                                    <div class="trade-summary">
+                                        <div>Est. Value: <strong id="tradeEstValue">₹0</strong></div>
+                                        <div>Margin Req: <strong id="tradeMargin">₹0</strong></div>
+                                    </div>
+                                    <button class="btn-trade btn-buy" id="tradeExecBtn"
+                                        onclick="TradeUI.execute()">BUY</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
-
-            <!-- TRADE MODAL -->
-            <div class="modal-overlay" id="tradeModal">
-                <div class="trade-panel glass-card">
-                    <div class="trade-header">
-                        <h3 id="tradeSymbol">RELIANCE</h3>
-                        <span id="tradeLtp" class="trade-ltp">₹2,450.00</span>
-                        <button class="modal-close" onclick="TradeUI.closeModal()">✕</button>
-                    </div>
-                    <div class="trade-chart-area">
-                        <canvas id="tradeChart" width="500" height="200"></canvas>
-                    </div>
-                    <div class="trade-tabs">
-                        <button class="tt active" data-side="BUY" onclick="TradeUI.setSide('BUY')">BUY</button>
-                        <button class="tt" data-side="SELL" onclick="TradeUI.setSide('SELL')">SELL</button>
-                    </div>
-                    <div class="trade-form">
-                        <div class="trade-mode-select">
-                            <label><input type="radio" name="tradeMode" value="INTRADAY" checked
-                                    onchange="TradeUI.setMode(this.value)"> Intraday (5x)</label>
-                            <label><input type="radio" name="tradeMode" value="CNC"
-                                    onchange="TradeUI.setMode(this.value)"> CNC</label>
-                        </div>
-                        <div class="trade-type-select">
-                            <label><input type="radio" name="orderType" value="MARKET" checked
-                                    onchange="TradeUI.setOrderType(this.value)"> Market</label>
-                            <label><input type="radio" name="orderType" value="LIMIT"
-                                    onchange="TradeUI.setOrderType(this.value)"> Limit</label>
-                        </div>
-                        <div class="form-row">
-                            <label>Qty</label><input type="number" id="tradeQty" min="1" value="1">
-                        </div>
-                        <div class="form-row limit-row" id="limitRow" style="display:none">
-                            <label>Price</label><input type="number" id="tradePrice" step="0.05">
-                        </div>
-                        <div class="trade-summary">
-                            <div>Est. Value: <strong id="tradeEstValue">₹0</strong></div>
-                            <div>Margin Req: <strong id="tradeMargin">₹0</strong></div>
-                        </div>
-                        <button class="btn-trade btn-buy" id="tradeExecBtn" onclick="TradeUI.execute()">BUY</button>
-                    </div>
-                </div>
-            </div>
 
             <!-- PORTFOLIO TAB -->
             <section class="tab-content" id="tab-portfolio">
@@ -301,14 +336,24 @@
                         </table>
                     </div>
                 </div>
-                <div class="charts-row">
+                <!-- Enhanced Charts Section -->
+                <div class="portfolio-charts-grid">
                     <div class="chart-card glass-card">
-                        <h3>Sector Allocation</h3><svg id="pieChart" viewBox="0 0 200 200" width="200"
-                            height="200"></svg>
+                        <h3>Sector Allocation</h3>
+                        <canvas id="pieChart" width="280" height="280"></canvas>
                         <div id="pieLegend" class="pie-legend"></div>
                     </div>
                     <div class="chart-card glass-card">
-                        <h3>Portfolio Value</h3><canvas id="portfolioChart" width="450" height="200"></canvas>
+                        <h3>Portfolio Value Trend</h3>
+                        <canvas id="portfolioChart" width="500" height="260"></canvas>
+                    </div>
+                    <div class="chart-card glass-card">
+                        <h3>Daily P&L (Candlestick)</h3>
+                        <canvas id="pnlCandleChart" width="500" height="260"></canvas>
+                    </div>
+                    <div class="chart-card glass-card">
+                        <h3>Stock Allocation</h3>
+                        <canvas id="allocationChart" width="500" height="260"></canvas>
                     </div>
                 </div>
             </section>
