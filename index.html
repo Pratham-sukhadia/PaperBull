@@ -10,63 +10,201 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
         rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
     <canvas id="bgCanvas"></canvas>
 
-    <!-- ===== OTP SCREEN ===== -->
-    <div id="otpScreen" class="screen active">
-        <div class="otp-container glass-card">
-            <div class="otp-logo">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="22" stroke="url(#logoGrad)" stroke-width="3" />
-                    <path d="M16 30 L22 18 L28 26 L34 14" stroke="url(#logoGrad)" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round" fill="none" />
-                    <defs>
-                        <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
-                            <stop stop-color="#10b981" />
-                            <stop offset="1" stop-color="#3b82f6" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-                <h1>PaperBull</h1>
-                <p class="tagline">Master the Market. Zero Risk.</p>
-            </div>
-            <div id="phoneStep" class="otp-step active">
-                <label>Enter Mobile Number</label>
-                <div class="phone-input-row">
-                    <span class="country-code">+91</span>
-                    <input type="tel" id="phoneInput" maxlength="10" placeholder="9876543210" autocomplete="off">
+    <!-- ===== AUTH SCREEN ===== -->
+    <div id="authScreen" class="screen active">
+        <div class="auth-ticker-strip" id="authTickerStrip"></div>
+        <div class="auth-container">
+            <div class="auth-card glass-card" id="authCard">
+                <div class="auth-logo">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <circle cx="24" cy="24" r="22" stroke="url(#logoGrad)" stroke-width="3" />
+                        <path d="M16 30 L22 18 L28 26 L34 14" stroke="url(#logoGrad)" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+                                <stop stop-color="#10b981" />
+                                <stop offset="1" stop-color="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <h1>PaperBull</h1>
+                    <p class="tagline">Master the Market. Zero Risk.</p>
                 </div>
-                <button id="sendOtpBtn" class="btn-primary" onclick="OTP.sendOtp()">Get OTP</button>
-            </div>
-            <div id="otpStep" class="otp-step">
-                <label>Enter OTP sent to <span id="otpPhone"></span></label>
-                <div class="otp-digits" id="otpDigits">
-                    <input type="text" maxlength="1" data-idx="0" class="otp-box">
-                    <input type="text" maxlength="1" data-idx="1" class="otp-box">
-                    <input type="text" maxlength="1" data-idx="2" class="otp-box">
-                    <input type="text" maxlength="1" data-idx="3" class="otp-box">
-                    <input type="text" maxlength="1" data-idx="4" class="otp-box">
-                    <input type="text" maxlength="1" data-idx="5" class="otp-box">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="register"
+                        onclick="AuthUI.switchTab('register')">Register</button>
+                    <button class="auth-tab" data-tab="login" onclick="AuthUI.switchTab('login')">Login</button>
+                    <button class="auth-tab" data-tab="otp" onclick="AuthUI.switchTab('otp')">Mobile OTP</button>
                 </div>
-                <div id="smsAnim" class="sms-animation">
-                    <div class="sms-bubble">📩 OTP: <span id="smsOtpDisplay"></span></div>
+                <div class="auth-error-banner" id="authErrorBanner" style="display:none"></div>
+                <div class="auth-form-wrapper" id="authFormWrapper">
+                    <!-- REGISTER FORM -->
+                    <div class="auth-form active" id="authFormRegister">
+                        <div class="auth-field">
+                            <label>Full Name</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-user"></i>
+                                <input type="text" id="regName" placeholder="John Doe" autocomplete="name">
+                            </div>
+                            <span class="field-error" id="regNameError"></span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Email Address</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-envelope-simple"></i>
+                                <input type="email" id="regEmail" placeholder="you@example.com" autocomplete="email">
+                            </div>
+                            <span class="field-error" id="regEmailError"></span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Mobile Number <small>(optional)</small></label>
+                            <div class="auth-input-wrap">
+                                <span class="country-code-inline">+91</span>
+                                <input type="tel" id="regPhone" maxlength="10" placeholder="9876543210"
+                                    autocomplete="tel">
+                            </div>
+                            <span class="field-error" id="regPhoneError"></span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Password</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-lock-simple"></i>
+                                <input type="password" id="regPassword"
+                                    placeholder="Min 8 chars, 1 upper, 1 num, 1 special" autocomplete="new-password">
+                                <button type="button" class="eye-toggle" onclick="AuthUI.toggleEye('regPassword')"><i
+                                        class="ph ph-eye"></i></button>
+                            </div>
+                            <div class="password-strength-bar" id="regStrengthBar">
+                                <div class="strength-fill" id="regStrengthFill"></div>
+                            </div>
+                            <span class="strength-label" id="regStrengthLabel"></span>
+                            <span class="field-error" id="regPasswordError"></span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Confirm Password</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-lock-simple"></i>
+                                <input type="password" id="regConfirm" placeholder="Re-enter password"
+                                    autocomplete="new-password">
+                                <button type="button" class="eye-toggle" onclick="AuthUI.toggleEye('regConfirm')"><i
+                                        class="ph ph-eye"></i></button>
+                                <span class="match-indicator" id="regMatchIndicator"></span>
+                            </div>
+                            <span class="field-error" id="regConfirmError"></span>
+                        </div>
+                        <button class="btn-primary btn-auth btn-shimmer" onclick="AuthUI.register()">Register
+                            Now</button>
+                    </div>
+
+                    <!-- LOGIN FORM -->
+                    <div class="auth-form" id="authFormLogin">
+                        <div class="auth-field">
+                            <label>Email Address</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-envelope-simple"></i>
+                                <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+                            </div>
+                            <span class="field-error" id="loginEmailError"></span>
+                        </div>
+                        <div class="auth-field">
+                            <label>Password</label>
+                            <div class="auth-input-wrap">
+                                <i class="ph ph-lock-simple"></i>
+                                <input type="password" id="loginPassword" placeholder="Enter your password"
+                                    autocomplete="current-password">
+                                <button type="button" class="eye-toggle" onclick="AuthUI.toggleEye('loginPassword')"><i
+                                        class="ph ph-eye"></i></button>
+                            </div>
+                            <span class="field-error" id="loginPasswordError"></span>
+                        </div>
+                        <button class="btn-primary btn-auth btn-shimmer" id="loginBtn"
+                            onclick="AuthUI.login()">Login</button>
+                        <div class="auth-links">
+                            <button class="btn-link" onclick="Toast.show('Password reset coming soon', 'info')">Forgot
+                                Password?</button>
+                            <button class="btn-link" onclick="AuthUI.switchTab('register')">Don't have an account?
+                                Register →</button>
+                        </div>
+                        <div class="login-lockout" id="loginLockout" style="display:none">
+                            <i class="ph ph-lock"></i>
+                            <span>🔒 TOO MANY FAILED ATTEMPTS — PLEASE WAIT <strong id="lockoutTimer">60</strong>
+                                SECONDS.</span>
+                        </div>
+                    </div>
+
+                    <!-- OTP FORM -->
+                    <div class="auth-form" id="authFormOtp">
+                        <div id="phoneStep" class="otp-step active">
+                            <label>Enter Mobile Number</label>
+                            <div class="phone-input-row">
+                                <span class="country-code">+91</span>
+                                <input type="tel" id="phoneInput" maxlength="10" placeholder="9876543210"
+                                    autocomplete="off">
+                            </div>
+                            <button class="btn-primary btn-auth" onclick="OTP.sendOtp()">Get OTP</button>
+                        </div>
+                        <div id="otpStep" class="otp-step">
+                            <label>Enter OTP sent to <span id="otpPhone"></span></label>
+                            <div id="smsAnim" class="sms-animation">
+                                <div class="sms-bubble-card">
+                                    <div class="sms-header"><i class="ph ph-chat-circle-text"></i> PaperBull Simulator
+                                    </div>
+                                    <div class="sms-body">📩 Your OTP for PaperBull login is: <strong id="smsOtpDisplay"
+                                            class="typewriter-otp"></strong>. Valid for 5 minutes. Do not share.</div>
+                                </div>
+                            </div>
+                            <div class="otp-digits" id="otpDigits">
+                                <input type="text" maxlength="1" data-idx="0" class="otp-box" inputmode="numeric">
+                                <input type="text" maxlength="1" data-idx="1" class="otp-box" inputmode="numeric">
+                                <input type="text" maxlength="1" data-idx="2" class="otp-box" inputmode="numeric">
+                                <input type="text" maxlength="1" data-idx="3" class="otp-box" inputmode="numeric">
+                                <input type="text" maxlength="1" data-idx="4" class="otp-box" inputmode="numeric">
+                                <input type="text" maxlength="1" data-idx="5" class="otp-box" inputmode="numeric">
+                            </div>
+                            <span class="field-error" id="otpError"></span>
+                            <button class="btn-primary btn-auth" onclick="OTP.verifyOtp()">Verify & Start
+                                Trading</button>
+                            <div class="otp-resend" id="otpResendWrap">
+                                <span id="otpResendTimer" class="resend-timer"></span>
+                                <button class="btn-link" id="resendBtn" onclick="OTP.resend()" disabled>Resend
+                                    OTP</button>
+                            </div>
+                        </div>
+                        <div class="restore-link">
+                            <button onclick="OTP.toggleRestore()"><i class="ph ph-arrows-clockwise"></i> Restore data
+                                from another device?</button>
+                        </div>
+                        <div class="restore-panel" id="restorePanel">
+                            <label
+                                style="display:block;margin-bottom:8px;color:var(--text-secondary);font-size:0.85rem">Enter
+                                your Sync Code</label>
+                            <input type="text" id="restoreSyncCode" placeholder="Paste sync code here...">
+                            <button class="btn-primary" onclick="OTP.restoreFromCode()" style="width:100%">Restore &
+                                Login</button>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn-primary" onclick="OTP.verifyOtp()">Verify & Start Trading</button>
-                <button class="btn-link" onclick="OTP.resend()">Resend OTP</button>
             </div>
-            <div class="restore-link">
-                <button onclick="OTP.toggleRestore()">🔄 Restore data from another device?</button>
+        </div>
+    </div>
+
+    <!-- ===== WELCOME ANIMATION OVERLAY ===== -->
+    <div id="welcomeOverlay" class="welcome-overlay" style="display:none">
+        <div class="welcome-content">
+            <svg class="welcome-chart" id="welcomeChart" width="320" height="180" viewBox="0 0 320 180"></svg>
+            <h2 class="welcome-text" id="welcomeText"></h2>
+            <p class="welcome-sub" id="welcomeSub" style="opacity:0">Your portfolio is loading...</p>
+            <div class="welcome-progress">
+                <div class="welcome-progress-fill" id="welcomeProgressFill"></div>
             </div>
-            <div class="restore-panel" id="restorePanel">
-                <label style="display:block;margin-bottom:8px;color:var(--text-secondary);font-size:0.85rem">Enter your
-                    Sync Code</label>
-                <input type="text" id="restoreSyncCode" placeholder="Paste sync code here...">
-                <button class="btn-primary" onclick="OTP.restoreFromCode()" style="width:100%">Restore & Login</button>
-            </div>
+            <div class="welcome-particles" id="welcomeParticles"></div>
         </div>
     </div>
 
@@ -77,13 +215,13 @@
             <h1 class="intro-title">Welcome to <span class="gradient-text">PaperBull</span></h1>
             <p class="intro-sub">Your journey to becoming a market master begins now</p>
             <div class="intro-features">
-                <div class="intro-feat"><span>📊</span>
+                <div class="intro-feat"><span><i class="ph ph-chart-line-up"></i></span>
                     <p>Real-time Simulation</p>
                 </div>
-                <div class="intro-feat"><span>💹</span>
+                <div class="intro-feat"><span><i class="ph ph-trend-up"></i></span>
                     <p>Intraday · CNC · F&O</p>
                 </div>
-                <div class="intro-feat"><span>🏆</span>
+                <div class="intro-feat"><span><i class="ph ph-trophy"></i></span>
                     <p>Earn XP & Level Up</p>
                 </div>
             </div>
@@ -97,7 +235,8 @@
         <!-- Top Bar -->
         <header class="topbar">
             <div class="topbar-left">
-                <button class="menu-toggle" onclick="UI.toggleSidebar()">☰</button>
+                <button class="menu-toggle" id="hamburgerBtn" onclick="UI.toggleSidebar()"><i
+                        class="ph ph-list"></i></button>
                 <div class="logo-sm">
                     <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
                         <circle cx="24" cy="24" r="22" stroke="url(#logoGrad2)" stroke-width="3" />
@@ -128,31 +267,51 @@
                     </div>
                 </div>
                 <div class="capital-display">₹<span id="headerCapital">1,00,000</span></div>
-                <button class="theme-toggle" onclick="Theme.toggle()" title="Toggle Theme">🌓</button>
+                <button class="theme-toggle" onclick="Theme.toggle()" title="Toggle Theme"><i
+                        class="ph ph-moon"></i></button>
+                <button class="notification-bell" id="notificationBell" onclick="UI.toggleMobileDrawer()"><i
+                        class="ph ph-bell"></i></button>
+                <div class="user-avatar-sm" id="userAvatarTopbar" onclick="UI.toggleMobileDrawer()">🐂</div>
             </div>
         </header>
 
+        <!-- Mobile Drawer -->
+        <div class="mobile-drawer" id="mobileDrawer" style="display:none">
+            <div class="drawer-item"><i class="ph ph-chart-bar"></i> <span id="drawerMarketStatus">Market Closed</span>
+            </div>
+            <div class="drawer-item"><i class="ph ph-wallet"></i> Balance: ₹<span id="drawerBalance">1,00,000</span>
+            </div>
+            <div class="drawer-item"><i class="ph ph-star"></i> <span id="drawerXP">0 XP</span> · <span
+                    id="drawerLevel">Level 1</span></div>
+            <div class="drawer-item" onclick="Theme.toggle()"><i class="ph ph-moon"></i> Toggle Theme</div>
+        </div>
+
+        <!-- Sidebar Backdrop -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="UI.closeSidebar()"></div>
+
         <!-- Sidebar -->
         <nav class="sidebar" id="sidebar">
+            <button class="sidebar-close-btn" id="sidebarCloseBtn" onclick="UI.closeSidebar()"><i
+                    class="ph ph-x"></i></button>
             <button class="nav-btn active" data-tab="market" onclick="UI.showTab('market')"><i
-                    data-lucide="bar-chart-2"></i><span>Market</span></button>
+                    class="ph ph-chart-line-up"></i><span>Market</span></button>
             <button class="nav-btn" data-tab="portfolio" onclick="UI.showTab('portfolio')"><i
-                    data-lucide="briefcase"></i><span>Portfolio</span></button>
+                    class="ph ph-briefcase"></i><span>Portfolio</span></button>
             <button class="nav-btn" data-tab="orders" onclick="UI.showTab('orders')"><i
-                    data-lucide="scroll-text"></i><span>Orders</span></button>
+                    class="ph ph-scroll"></i><span>Orders</span></button>
             <button class="nav-btn" data-tab="fno" onclick="UI.showTab('fno')"><i
-                    data-lucide="layers"></i><span>F&O</span></button>
+                    class="ph ph-stack"></i><span>F&O</span></button>
             <button class="nav-btn" data-tab="predict" onclick="UI.showTab('predict')"><i
-                    data-lucide="target"></i><span>Predict</span></button>
+                    class="ph ph-target"></i><span>Predict</span></button>
             <button class="nav-btn" data-tab="quiz" onclick="UI.showTab('quiz')"><i
-                    data-lucide="brain"></i><span>Quiz</span></button>
+                    class="ph ph-brain"></i><span>Quiz</span></button>
             <button class="nav-btn" data-tab="profile" onclick="UI.showTab('profile')"><i
-                    data-lucide="trophy"></i><span>Profile</span></button>
+                    class="ph ph-trophy"></i><span>Profile</span></button>
             <button class="nav-btn" data-tab="settings" onclick="UI.showTab('settings')"><i
-                    data-lucide="settings"></i><span>Settings</span></button>
+                    class="ph ph-gear-six"></i><span>Settings</span></button>
             <div style="flex:1"></div>
             <button class="nav-btn logout-btn" onclick="App.logout()" title="Logout"><i
-                    data-lucide="log-out"></i><span>Logout</span></button>
+                    class="ph ph-sign-out"></i><span>Logout</span></button>
         </nav>
 
         <!-- Main Content Area -->
@@ -219,7 +378,7 @@
                     </div>
                     <div class="stock-detail-side" id="stockDetailPanel">
                         <div class="detail-placeholder" id="detailPlaceholder">
-                            <div class="detail-placeholder-icon">📈</div>
+                            <div class="detail-placeholder-icon"><i class="ph ph-chart-line-up"></i></div>
                             <p>Select a stock to view details, charts & trade</p>
                         </div>
                         <div class="detail-content" id="detailContent" style="display:none">
@@ -231,7 +390,7 @@
                                     <span class="detail-exchange-badge" id="detailExchange">NSE</span>
                                 </div>
                                 <div class="detail-stock-price">
-                                    <span class="detail-ltp" id="detailLtp">₹2,480.00</span>
+                                    <span class="detail-ltp" id="detailLtp">₹2,920.00</span>
                                     <span class="detail-change" id="detailChange">+12.50 (+0.51%)</span>
                                 </div>
                             </div>
@@ -305,35 +464,39 @@
                 <div class="portfolio-grid">
                     <div class="pf-section glass-card">
                         <h3>Holdings (CNC)</h3>
-                        <table class="pf-table">
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Qty</th>
-                                    <th>Avg</th>
-                                    <th>LTP</th>
-                                    <th>P&L</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="holdingsBody"></tbody>
-                        </table>
+                        <div class="pf-table-wrap">
+                            <table class="pf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Qty</th>
+                                        <th>Avg</th>
+                                        <th>LTP</th>
+                                        <th>P&L</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="holdingsBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="pf-section glass-card">
                         <h3>Positions (Intraday)</h3>
-                        <table class="pf-table">
-                            <thead>
-                                <tr>
-                                    <th>Symbol</th>
-                                    <th>Qty</th>
-                                    <th>Avg</th>
-                                    <th>LTP</th>
-                                    <th>P&L</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="positionsBody"></tbody>
-                        </table>
+                        <div class="pf-table-wrap">
+                            <table class="pf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Symbol</th>
+                                        <th>Qty</th>
+                                        <th>Avg</th>
+                                        <th>LTP</th>
+                                        <th>P&L</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="positionsBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <!-- Enhanced Charts Section -->
@@ -366,21 +529,23 @@
                     <button class="ot" onclick="OrderUI.showSub('executed')">Executed</button>
                     <button class="ot" onclick="OrderUI.showSub('all')">All</button>
                 </div>
-                <table class="order-table glass-card">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Symbol</th>
-                            <th>Side</th>
-                            <th>Mode</th>
-                            <th>Type</th>
-                            <th>Qty</th>
-                            <th>Price</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersBody"></tbody>
-                </table>
+                <div class="order-table-wrap">
+                    <table class="order-table glass-card">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Mode</th>
+                                <th>Type</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersBody"></tbody>
+                    </table>
+                </div>
             </section>
 
             <!-- F&O TAB -->
@@ -395,9 +560,9 @@
                         <option value="INFY">INFY</option>
                     </select>
                     <select id="fnoExpiry" onchange="FnOUI.loadChain()">
-                        <option>27 Feb 2026</option>
                         <option>27 Mar 2026</option>
                         <option>24 Apr 2026</option>
+                        <option>29 May 2026</option>
                     </select>
                     <div class="fno-type-btns">
                         <button class="active" onclick="FnOUI.setType('FUT')">Futures</button>
@@ -470,8 +635,10 @@
                         <option value="">Select Stock</option>
                     </select>
                     <div class="pred-btns">
-                        <button class="pred-up" onclick="Predict.submit('UP')">📈 UP</button>
-                        <button class="pred-down" onclick="Predict.submit('DOWN')">📉 DOWN</button>
+                        <button class="pred-up" onclick="Predict.submit('UP')"><i class="ph ph-trend-up"></i>
+                            UP</button>
+                        <button class="pred-down" onclick="Predict.submit('DOWN')"><i class="ph ph-trend-down"></i>
+                            DOWN</button>
                     </div>
                 </div>
                 <div class="predict-history glass-card">
@@ -515,6 +682,7 @@
                     <div class="profile-info">
                         <h3 id="profileName">Trader</h3>
                         <p id="profilePhone">+91 ••••••••••</p>
+                        <p id="profileEmail" class="profile-email"></p>
                     </div>
                     <div class="level-display">
                         <span class="level-badge" id="profileLevel">Level 1</span>
@@ -525,19 +693,19 @@
                     </div>
                 </div>
                 <div class="profile-stats">
-                    <div class="stat-card glass-card"><span>💰</span>
+                    <div class="stat-card glass-card"><span><i class="ph ph-wallet"></i></span>
                         <h4>Capital</h4>
                         <p id="statCapital">₹1,00,000</p>
                     </div>
-                    <div class="stat-card glass-card"><span>📊</span>
+                    <div class="stat-card glass-card"><span><i class="ph ph-chart-bar"></i></span>
                         <h4>Trades</h4>
                         <p id="statTrades">0</p>
                     </div>
-                    <div class="stat-card glass-card"><span>🎯</span>
+                    <div class="stat-card glass-card"><span><i class="ph ph-target"></i></span>
                         <h4>Pred. Accuracy</h4>
                         <p id="statPredAcc">0%</p>
                     </div>
-                    <div class="stat-card glass-card"><span>⭐</span>
+                    <div class="stat-card glass-card"><span><i class="ph ph-star"></i></span>
                         <h4>Total XP</h4>
                         <p id="statXp">0</p>
                     </div>
@@ -566,33 +734,77 @@
                 </div>
                 <div class="settings-group glass-card">
                     <h3>Data Management</h3>
-                    <button class="btn-secondary" onclick="Settings.exportData()">📤 Export Data (JSON)</button>
-                    <button class="btn-secondary" onclick="document.getElementById('importFile').click()">📥 Import
-                        Data</button>
+                    <button class="btn-secondary" onclick="Settings.exportData()"><i class="ph ph-upload-simple"></i>
+                        Export Data (JSON)</button>
+                    <button class="btn-secondary" onclick="document.getElementById('importFile').click()"><i
+                            class="ph ph-download-simple"></i> Import Data</button>
                     <input type="file" id="importFile" accept=".json" style="display:none"
                         onchange="Settings.importData(event)">
-                    <button class="btn-danger" onclick="Settings.resetAll()">🗑️ Reset Everything</button>
+                    <button class="btn-danger" onclick="Settings.resetAll()"><i class="ph ph-trash"></i> Reset
+                        Everything</button>
                 </div>
                 <div class="settings-group glass-card">
-                    <h3>☁️ Cloud Sync</h3>
+                    <h3><i class="ph ph-cloud"></i> Cloud Sync</h3>
                     <p style="color:var(--text-secondary);margin-bottom:8px;font-size:0.85rem">Sync your data across
                         devices. Share this code on your other device to restore all data.</p>
                     <div id="syncInfo">
                         <div class="sync-code-display" id="syncCodeDisplay"><span id="syncCodeText">Not
                                 synced</span><button class="copy-btn" onclick="CloudSync.copyCode()">Copy</button></div>
                         <div class="sync-status" id="syncStatusText"></div>
-                        <button class="btn-secondary" onclick="CloudSync.forceSync()" style="margin-top:8px">🔄 Sync
-                            Now</button>
+                        <button class="btn-secondary" onclick="CloudSync.forceSync()" style="margin-top:8px"><i
+                                class="ph ph-arrows-clockwise"></i> Sync Now</button>
                     </div>
                 </div>
                 <div class="settings-group glass-card">
                     <h3>Account</h3>
-                    <p style="color:var(--text-secondary);margin-bottom:12px">Sign out and login with a different phone
-                        number.</p>
-                    <button class="btn-danger" onclick="App.logout()">🚪 Logout</button>
+                    <p style="color:var(--text-secondary);margin-bottom:12px">Sign out of your account.</p>
+                    <button class="btn-danger" onclick="App.logout()"><i class="ph ph-sign-out"></i> Logout</button>
                 </div>
             </section>
         </main>
+
+        <!-- Bottom Navigation Bar (Mobile) -->
+        <nav class="bottom-nav" id="bottomNav">
+            <button class="bottom-nav-item active" data-tab="market" onclick="UI.showTab('market')">
+                <span class="bottom-nav-dot"></span>
+                <i class="ph ph-chart-line-up"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="bottom-nav-item" data-tab="market" onclick="UI.showTab('market')">
+                <span class="bottom-nav-dot"></span>
+                <i class="ph ph-storefront"></i>
+                <span>Markets</span>
+            </button>
+            <button class="bottom-nav-item" data-tab="portfolio" onclick="UI.showTab('portfolio')">
+                <span class="bottom-nav-dot"></span>
+                <i class="ph ph-briefcase"></i>
+                <span>Portfolio</span>
+            </button>
+            <button class="bottom-nav-item" data-tab="orders" onclick="UI.showTab('orders')">
+                <span class="bottom-nav-dot"></span>
+                <i class="ph ph-scroll"></i>
+                <span>Orders</span>
+            </button>
+            <button class="bottom-nav-item" data-tab="settings" onclick="UI.showTab('settings')">
+                <span class="bottom-nav-dot"></span>
+                <i class="ph ph-gear-six"></i>
+                <span>Settings</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Market Closed Modal -->
+    <div class="modal-overlay" id="marketClosedModal" style="display:none">
+        <div class="modal-content glass-card modal-spring">
+            <div class="modal-lock-icon">🔒</div>
+            <h3>MARKET IS CURRENTLY CLOSED</h3>
+            <p class="modal-ist-time" id="modalIstTime"></p>
+            <p class="modal-status-text" id="modalStatusText"></p>
+            <div class="modal-countdown">
+                <span>Opens in: </span><strong id="modalCountdown">--:--:--</strong>
+            </div>
+            <button class="btn-primary" onclick="UI.closeMarketClosedModal()">Got It</button>
+        </div>
     </div>
 
     <!-- Toast -->
@@ -600,7 +812,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="engine.js"></script>
     <script src="app.js"></script>
 </body>
