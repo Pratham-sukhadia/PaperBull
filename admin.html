@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>PaperBULL Admin Panel</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #06090f;
+            --bg2: #0d1117;
+            --card: #161b22;
+            --border: rgba(48, 62, 80, 0.5);
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --dim: #484f58;
+            --accent: #10b981;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --yellow: #f59e0b;
+            --purple: #8b5cf6;
+            --radius: 12px
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--dim);
+            border-radius: 3px
+        }
+
+        .login-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            min-height: 100vh;
+            flex-direction: column
+        }
+
+        .login-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            max-width: 400px;
+            width: 90%
+        }
+
+        .login-card h2 {
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--accent), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .login-card p {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 24px;
+            font-size: 0.9rem
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(30, 40, 60, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            margin-bottom: 12px;
+            font-size: 0.95rem
+        }
+
+        .login-card input:focus {
+            border-color: var(--accent);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1)
+        }
+
+        .login-card button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--blue));
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s
+        }
+
+        .login-card button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3)
+        }
+
+        .login-error {
+            color: var(--red);
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 8px;
+            min-height: 1.2em
+        }
+
+        .admin-layout {
+            display: flex;
+            width: 100%;
+            min-height: 100vh
+        }
+
+        .admin-sidebar {
+            width: 240px;
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: fixed;
+            top: 0;
+            bottom: 0
+        }
+
+        .admin-sidebar h2 {
+            padding: 0 20px;
+            font-size: 1.2rem;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .admin-sidebar h2 span {
+            font-size: 0.7rem;
+            background: var(--red);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600
+        }
+
+        .admin-nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px
+        }
+
+        .admin-nav button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+            text-align: left;
+            width: 100%
+        }
+
+        .admin-nav button:hover {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text)
+        }
+
+        .admin-nav button.active {
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--accent);
+            border-right: 3px solid var(--accent)
+        }
+
+        .admin-nav button.logout {
+            color: var(--red);
+            margin-top: auto;
+            border-top: 1px solid var(--border);
+            padding-top: 14px
+        }
+
+        .admin-main {
+            margin-left: 240px;
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto
+        }
+
+        .admin-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px
+        }
+
+        .admin-topbar h1 {
+            font-size: 1.5rem;
+            font-weight: 700
+        }
+
+        .admin-topbar .admin-date {
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem
+        }
+
+        .admin-section {
+            display: none
+        }
+
+        .admin-section.active {
+            display: block;
+            animation: fadeIn .3s
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px
+        }
+
+        .stat-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            position: relative;
+            overflow: hidden
+        }
+
+        .stat-box::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px
+        }
+
+        .stat-box.green::after {
+            background: var(--accent)
+        }
+
+        .stat-box.blue::after {
+            background: var(--blue)
+        }
+
+        .stat-box.yellow::after {
+            background: var(--yellow)
+        }
+
+        .stat-box.purple::after {
+            background: var(--purple)
+        }
+
+        .stat-box.red::after {
+            background: var(--red)
+        }
+
+        .stat-box .stat-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px
+        }
+
+        .stat-box .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace
+        }
+
+        .stat-box .stat-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-top: 4px
+        }
+
+        .admin-table-wrap {
+            overflow-x: auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius)
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        .admin-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            background: rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0
+        }
+
+        .admin-table td {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem
+        }
+
+        .admin-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02)
+        }
+
+        .badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600
+        }
+
+        .badge-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent)
+        }
+
+        .badge-buy {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent)
+        }
+
+        .badge-sell {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--red)
+        }
+
+        .activity-feed {
+            max-height: 500px;
+            overflow-y: auto
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(48, 62, 80, 0.3);
+            align-items: flex-start
+        }
+
+        .activity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0
+        }
+
+        .activity-text {
+            flex: 1;
+            font-size: 0.85rem;
+            line-height: 1.4
+        }
+
+        .activity-time {
+            font-size: 0.75rem;
+            color: var(--dim);
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap
+        }
+
+        .chart-placeholder {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 16px
+        }
+
+        .chart-placeholder h3 {
+            margin-bottom: 16px;
+            font-size: 1rem
+        }
+
+        .chart-placeholder canvas {
+            width: 100%;
+            height: 200px
+        }
+
+        .export-section {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px
+        }
+
+        .export-btn {
+            padding: 12px 28px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card);
+            color: var(--text);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .export-btn:hover {
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.05)
+        }
+
+        .search-input {
+            padding: 8px 14px;
+            background: rgba(30, 40, 60, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.85rem;
+            width: 250px
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            outline: none
+        }
+
+        @keyframes shakeX {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-8px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(8px);
+            }
+        }
+
+        input,
+        button {
+            font-family: inherit;
+        }
+
+        @media(max-width:768px) {
+            .admin-sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                flex-direction: row;
+                overflow-x: auto;
+                padding: 10px;
+                border-right: none;
+                border-bottom: 1px solid var(--border)
+            }
+
+            .admin-sidebar h2 {
+                display: none
+            }
+
+            .admin-nav {
+                flex-direction: row;
+                gap: 4px
+            }
+
+            .admin-nav button {
+                padding: 8px 16px;
+                white-space: nowrap;
+                font-size: 0.8rem
+            }
+
+            .admin-nav button.logout {
+                margin-top: 0;
+                border-top: none
+            }
+
+            .admin-main {
+                margin-left: 0;
+                padding: 16px
+            }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, 1fr)
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- LOGIN -->
+    <div id="adminLogin" class="login-wrap">
+        <div class="login-card">
+            <h2>🔐 Admin Panel</h2>
+            <p>PaperBULL Administration Dashboard</p>
+            <input type="email" id="adminEmail" placeholder="Admin Email" autocomplete="email">
+            <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password">
+            <button onclick="AdminAuth.login()">Sign In</button>
+            <div class="login-error" id="adminLoginError"></div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="adminDashboard" class="admin-layout" style="display:none">
+        <aside class="admin-sidebar">
+            <h2>PaperBULL <span>ADMIN</span></h2>
+            <nav class="admin-nav" id="adminNav">
+                <button class="active" data-section="overview" onclick="Admin.showSection('overview')">📊
+                    Overview</button>
+                <button data-section="users" onclick="Admin.showSection('users')">👥 Users</button>
+                <button data-section="trades" onclick="Admin.showSection('trades')">📈 Trade History</button>
+                <button data-section="activity" onclick="Admin.showSection('activity')">📋 Activity Feed</button>
+                <button data-section="analytics" onclick="Admin.showSection('analytics')">📉 Analytics</button>
+                <button data-section="cloud" onclick="Admin.showSection('cloud')">☁️ Cloud Users</button>
+                <button data-section="export" onclick="Admin.showSection('export')">💾 Export Data</button>
+                <button class="logout" onclick="AdminAuth.logout()">🚪 Logout</button>
+            </nav>
+        </aside>
+        <main class="admin-main">
+            <div class="admin-topbar">
+                <h1 id="sectionTitle">Dashboard Overview</h1>
+                <span class="admin-date" id="adminDate"></span>
+            </div>
+
+            <!-- OVERVIEW -->
+            <div id="sec-overview" class="admin-section active">
+                <div class="stat-grid" id="overviewStats"></div>
+                <div class="chart-placeholder">
+                    <h3>User Registrations (Last 30 Days)</h3><canvas id="regChart" height="200"></canvas>
+                </div>
+                <div class="chart-placeholder">
+                    <h3>Trading Volume</h3><canvas id="volChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- USERS -->
+            <div id="sec-users" class="admin-section">
+                <div style="margin-bottom:16px"><input class="search-input" id="userSearch"
+                        placeholder="Search users..." oninput="Admin.filterUsers()"></div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Joined</th>
+                                <th>Last Login</th>
+                                <th>Status</th>
+                                <th>Level</th>
+                                <th>Capital</th>
+                                <th>Trades</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TRADES -->
+            <div id="sec-trades" class="admin-section">
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Mode</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ACTIVITY -->
+            <div id="sec-activity" class="admin-section">
+                <div class="admin-table-wrap">
+                    <div class="activity-feed" id="activityFeed"></div>
+                </div>
+            </div>
+
+            <!-- ANALYTICS -->
+            <div id="sec-analytics" class="admin-section">
+                <div class="stat-grid" id="analyticsStats"></div>
+                <div class="chart-placeholder">
+                    <h3>Capital Distribution</h3><canvas id="capitalChart" height="200"></canvas>
+                </div>
+                <div class="chart-placeholder">
+                    <h3>Top Traded Stocks</h3><canvas id="topStocksChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- EXPORT -->
+            <div id="sec-export" class="admin-section">
+                <p style="color:var(--muted);margin-bottom:16px">Export all platform data for analysis and backup.</p>
+                <div class="export-section">
+                    <button class="export-btn" onclick="Admin.exportJSON()">📄 Export JSON</button>
+                    <button class="export-btn" onclick="Admin.exportCSV()">📊 Export CSV</button>
+                    <button class="export-btn" onclick="Admin.exportAllUsers()">👥 Export All Users</button>
+                </div>
+            </div>
+
+            <!-- CLOUD USERS -->
+            <div id="sec-cloud" class="admin-section">
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+                    <p style="color:var(--muted);flex:1">Users from your live GitHub Pages site (fetched from cloud
+                        registry)</p>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input class="search-input" id="cloudBinId" placeholder="Registry Bin ID"
+                            style="width:220px;font-family:'JetBrains Mono',monospace;font-size:0.8rem">
+                        <button class="export-btn" onclick="Admin.setRegistryBinId()" style="padding:8px 16px">🔗
+                            Set</button>
+                        <button class="export-btn" onclick="Admin.refreshCloudUsers()"
+                            style="padding:8px 16px;border-color:var(--accent)">🔄 Refresh from Cloud</button>
+                    </div>
+                </div>
+                <div id="cloudStatus" style="margin-bottom:12px;font-size:0.85rem;color:var(--muted)"></div>
+                <div class="stat-grid" id="cloudStats"></div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Joined</th>
+                                <th>Last Active</th>
+                                <th>Browser</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cloudUsersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const ADMIN_CREDS = { email: 'sukhadiapratham952@gmail.com', password: 'admin@123' };
+
+        const AdminAuth = {
+            login() {
+                const e = document.getElementById('adminEmail').value.trim();
+                const p = document.getElementById('adminPassword').value;
+                const err = document.getElementById('adminLoginError');
+                if (e === ADMIN_CREDS.email && p === ADMIN_CREDS.password) {
+                    sessionStorage.setItem('paperbull_admin', '1');
+                    document.getElementById('adminLogin').style.display = 'none';
+                    document.getElementById('adminDashboard').style.display = 'flex';
+                    Admin.init();
+                } else {
+                    err.textContent = 'Invalid credentials. Access denied.';
+                    document.querySelector('.login-card').style.animation = 'shakeX 0.5s ease';
+                    setTimeout(() => document.querySelector('.login-card').style.animation = '', 500);
+                }
+            },
+            logout() {
+                sessionStorage.removeItem('paperbull_admin');
+                document.getElementById('adminDashboard').style.display = 'none';
+                document.getElementById('adminLogin').style.display = 'flex';
+            },
+            checkSession() {
+                if (sessionStorage.getItem('paperbull_admin') === '1') {
+                    document.getElementById('adminLogin').style.display = 'none';
+                    document.getElementById('adminDashboard').style.display = 'flex';
+                    Admin.init();
+                }
+            }
+        };
+
+        const Admin = {
+            _allUsers: [], _allStates: {},
+
+            init() {
+                document.getElementById('adminDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                this._loadData();
+                this.renderOverview();
+            },
+
+            _loadData() {
+                try { this._allUsers = JSON.parse(localStorage.getItem('paperbull_users') || '[]'); } catch (e) { this._allUsers = []; }
+                this._allStates = {};
+                this._allUsers.forEach(u => {
+                    try {
+                        const d = JSON.parse(localStorage.getItem('paperbull_state_' + u.userId) || 'null');
+                        if (d) this._allStates[u.userId] = d;
+                    } catch (e) { }
+                });
+            },
+
+            showSection(s) {
+                document.querySelectorAll('.admin-section').forEach(el => el.classList.remove('active'));
+                document.getElementById('sec-' + s).classList.add('active');
+                document.querySelectorAll('#adminNav button').forEach(b => b.classList.remove('active'));
+                document.querySelector(`#adminNav button[data-section="${s}"]`).classList.add('active');
+                const titles = { overview: 'Dashboard Overview', users: 'User Management', trades: 'Trade History', activity: 'Activity Feed', analytics: 'Analytics', cloud: '☁️ Cloud Users (Live Site)', export: 'Export Data' };
+                document.getElementById('sectionTitle').textContent = titles[s] || s;
+                if (s === 'users') this.renderUsers();
+                if (s === 'trades') this.renderTrades();
+                if (s === 'activity') this.renderActivity();
+                if (s === 'analytics') this.renderAnalytics();
+                if (s === 'cloud') this.refreshCloudUsers();
+            },
+
+            renderOverview() {
+                const totalUsers = this._allUsers.length;
+                let totalTrades = 0, totalCapital = 0, totalXP = 0, activeToday = 0;
+                const today = new Date().toDateString();
+                Object.values(this._allStates).forEach(d => {
+                    totalTrades += (d.totalTrades || 0);
+                    totalCapital += (d.capital || 0);
+                    totalXP += (d.xp || 0);
+                });
+                this._allUsers.forEach(u => { if (u.lastLogin && new Date(u.lastLogin).toDateString() === today) activeToday++; });
+                document.getElementById('overviewStats').innerHTML =
+                    `<div class="stat-box green"><div class="stat-label">Total Users</div><div class="stat-value">${totalUsers}</div><div class="stat-sub">Registered accounts</div></div>` +
+                    `<div class="stat-box blue"><div class="stat-label">Total Trades</div><div class="stat-value">${totalTrades.toLocaleString('en-IN')}</div><div class="stat-sub">All time</div></div>` +
+                    `<div class="stat-box yellow"><div class="stat-label">Total Capital</div><div class="stat-value">₹${(totalCapital / 100000).toFixed(1)}L</div><div class="stat-sub">Across all users</div></div>` +
+                    `<div class="stat-box purple"><div class="stat-label">Total XP</div><div class="stat-value">${totalXP.toLocaleString('en-IN')}</div><div class="stat-sub">Earned by all users</div></div>` +
+                    `<div class="stat-box red"><div class="stat-label">Active Today</div><div class="stat-value">${activeToday}</div><div class="stat-sub">Users logged in today</div></div>`;
+                this._drawRegChart(); this._drawVolChart();
+            },
+
+            renderUsers() {
+                const q = (document.getElementById('userSearch').value || '').toLowerCase();
+                let users = this._allUsers;
+                if (q) users = users.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+                document.getElementById('usersBody').innerHTML = users.length ? users.map(u => {
+                    const d = this._allStates[u.userId] || {};
+                    return `<tr><td style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--dim)">${u.userId}</td><td><strong>${u.name || '—'}</strong></td><td>${u.email || '—'}</td><td>${u.phone || '—'}</td><td>${u.joined ? new Date(u.joined).toLocaleDateString('en-IN') : '—'}</td><td>${u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('en-IN') : '—'}</td><td><span class="badge badge-active">Active</span></td><td>${d.level || 1}</td><td style="font-family:'JetBrains Mono',monospace">₹${(d.capital || 0).toLocaleString('en-IN')}</td><td>${d.totalTrades || 0}</td></tr>`;
+                }).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--dim);padding:40px">No users found</td></tr>';
+            },
+
+            filterUsers() { this.renderUsers(); },
+
+            renderTrades() {
+                let allTrades = [];
+                this._allUsers.forEach(u => {
+                    const d = this._allStates[u.userId];
+                    if (d && d.orders) {
+                        d.orders.forEach(o => { allTrades.push({ ...o, userName: u.name || u.email || u.userId }); });
+                    }
+                });
+                allTrades.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+                document.getElementById('tradesBody').innerHTML = allTrades.length ? allTrades.slice(0, 100).map(o => {
+                    const sideCls = o.side === 'BUY' ? 'badge-buy' : 'badge-sell';
+                    return `<tr><td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem">${o.date || ''} ${o.time || ''}</td><td>${o.userName}</td><td><strong>${o.sym}</strong></td><td><span class="badge ${sideCls}">${o.side}</span></td><td>${o.qty}</td><td style="font-family:'JetBrains Mono',monospace">₹${(o.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td>${o.mode}</td><td><span class="badge ${o.status === 'EXECUTED' ? 'badge-active' : 'badge-sell'}">${o.status}</span></td></tr>`;
+                }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:40px">No trades yet</td></tr>';
+            },
+
+            renderActivity() {
+                let allLogs = [];
+                this._allUsers.forEach(u => {
+                    const d = this._allStates[u.userId];
+                    if (d && d.activityLog) {
+                        d.activityLog.forEach(l => { allLogs.push({ ...l, userName: u.name || u.email || u.userId }); });
+                    }
+                });
+                allLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                const colors = { login: 'var(--accent)', register: 'var(--blue)', buy_order: 'var(--accent)', sell_order: 'var(--red)', quiz: 'var(--yellow)', prediction: 'var(--purple)' };
+                document.getElementById('activityFeed').innerHTML = allLogs.length ? allLogs.slice(0, 200).map(l =>
+                    `<div class="activity-item"><div class="activity-dot" style="background:${colors[l.type] || 'var(--dim)'}"></div><div class="activity-text"><strong>${l.userName}</strong> — ${l.detail || l.type}</div><div class="activity-time">${l.timestamp ? new Date(l.timestamp).toLocaleString('en-IN') : '—'}</div></div>`
+                ).join('') : '<div style="text-align:center;color:var(--dim);padding:40px">No activity yet</div>';
+            },
+
+            renderAnalytics() {
+                let totalProfitable = 0, totalTrades = 0, avgLevel = 0, maxXP = 0;
+                const userCount = Object.keys(this._allStates).length || 1;
+                Object.values(this._allStates).forEach(d => {
+                    totalProfitable += (d.profitableTrades || 0);
+                    totalTrades += (d.totalTrades || 0);
+                    avgLevel += (d.level || 1);
+                    maxXP = Math.max(maxXP, d.xp || 0);
+                });
+                const winRate = totalTrades ? Math.round(totalProfitable / totalTrades * 100) : 0;
+                document.getElementById('analyticsStats').innerHTML =
+                    `<div class="stat-box green"><div class="stat-label">Win Rate</div><div class="stat-value">${winRate}%</div></div>` +
+                    `<div class="stat-box blue"><div class="stat-label">Avg Level</div><div class="stat-value">${(avgLevel / userCount).toFixed(1)}</div></div>` +
+                    `<div class="stat-box yellow"><div class="stat-label">Max XP</div><div class="stat-value">${maxXP.toLocaleString('en-IN')}</div></div>` +
+                    `<div class="stat-box purple"><div class="stat-label">Profitable Trades</div><div class="stat-value">${totalProfitable}/${totalTrades}</div></div>`;
+                this._drawCapitalChart(); this._drawTopStocksChart();
+            },
+
+            _drawRegChart() {
+                const c = document.getElementById('regChart'); if (!c) return;
+                const ctx = c.getContext('2d'); const w = c.width, h = c.height; ctx.clearRect(0, 0, w, h);
+                const data = Array.from({ length: 30 }, () => Math.floor(Math.random() * 5));
+                data[data.length - 1] = this._allUsers.length;
+                const max = Math.max(...data, 1); const barW = w / data.length - 4;
+                data.forEach((v, i) => {
+                    const bh = (v / max) * (h - 40);
+                    ctx.fillStyle = 'rgba(16,185,129,0.6)';
+                    ctx.fillRect(i * (barW + 4) + 2, h - bh - 20, barW, bh);
+                });
+            },
+
+            _drawVolChart() {
+                const c = document.getElementById('volChart'); if (!c) return;
+                const ctx = c.getContext('2d'); const w = c.width, h = c.height; ctx.clearRect(0, 0, w, h);
+                const data = Array.from({ length: 20 }, () => Math.floor(Math.random() * 1000) + 100);
+                const max = Math.max(...data, 1); const step = w / (data.length - 1 || 1);
+                const grad = ctx.createLinearGradient(0, 0, 0, h);
+                grad.addColorStop(0, 'rgba(59,130,246,0.3)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.beginPath(); ctx.moveTo(0, h);
+                data.forEach((v, i) => { ctx.lineTo(i * step, h - ((v / max) * (h - 40)) - 20); });
+                ctx.lineTo(w, h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+                ctx.beginPath();
+                data.forEach((v, i) => { const y = h - ((v / max) * (h - 40)) - 20; i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * step, y); });
+                ctx.strokeStyle = 'var(--blue)'; ctx.lineWidth = 2; ctx.stroke();
+            },
+
+            _drawCapitalChart() {
+                const c = document.getElementById('capitalChart'); if (!c) return;
+                const ctx = c.getContext('2d'); const w = c.width, h = c.height; ctx.clearRect(0, 0, w, h);
+                const capitals = Object.values(this._allStates).map(d => d.capital || 0).sort((a, b) => b - a).slice(0, 10);
+                if (!capitals.length) return;
+                const max = Math.max(...capitals, 1); const barH = (h - 20) / capitals.length;
+                const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#ef4444', '#f97316', '#14b8a6'];
+                capitals.forEach((v, i) => {
+                    const bw = (v / max) * (w - 100);
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fillRect(80, i * barH + 2, bw, barH - 4);
+                    ctx.fillStyle = 'var(--muted)'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'right';
+                    ctx.fillText('₹' + (v / 100000).toFixed(1) + 'L', 75, i * barH + barH / 2 + 4);
+                });
+            },
+
+            _drawTopStocksChart() {
+                const c = document.getElementById('topStocksChart'); if (!c) return;
+                const ctx = c.getContext('2d'); const w = c.width, h = c.height; ctx.clearRect(0, 0, w, h);
+                const symCount = {};
+                Object.values(this._allStates).forEach(d => {
+                    if (d.orders) d.orders.forEach(o => { symCount[o.sym] = (symCount[o.sym] || 0) + 1; });
+                });
+                const sorted = Object.entries(symCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                if (!sorted.length) return;
+                const max = Math.max(...sorted.map(s => s[1]), 1); const barW = w / sorted.length - 8;
+                sorted.forEach(([sym, cnt], i) => {
+                    const bh = (cnt / max) * (h - 50);
+                    ctx.fillStyle = 'rgba(139,92,246,0.6)';
+                    ctx.fillRect(i * (barW + 8) + 4, h - bh - 30, barW, bh);
+                    ctx.fillStyle = 'var(--muted)'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+                    ctx.fillText(sym, i * (barW + 8) + 4 + barW / 2, h - 14);
+                    ctx.fillText(cnt, i * (barW + 8) + 4 + barW / 2, h - bh - 34);
+                });
+            },
+
+            exportJSON() {
+                const data = { users: this._allUsers, states: this._allStates, exportedAt: new Date().toISOString() };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = 'paperbull_admin_export_' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
+            },
+
+            exportCSV() {
+                let csv = 'UserID,Name,Email,Phone,Joined,Level,Capital,Trades,XP\n';
+                this._allUsers.forEach(u => {
+                    const d = this._allStates[u.userId] || {};
+                    csv += `${u.userId},"${u.name || ''}","${u.email || ''}","${u.phone || ''}",${u.joined ? new Date(u.joined).toLocaleDateString('en-IN') : ''},${d.level || 1},${d.capital || 0},${d.totalTrades || 0},${d.xp || 0}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = 'paperbull_users_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+            },
+
+            exportAllUsers() {
+                const blob = new Blob([JSON.stringify(this._allUsers, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = 'paperbull_users_raw_' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
+            },
+
+            // Cloud Users
+            _cloudApiKey: '$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            _cloudBaseUrl: 'https://api.jsonbin.io/v3/b/',
+
+            setRegistryBinId() {
+                const binId = document.getElementById('cloudBinId').value.trim();
+                if (!binId) { document.getElementById('cloudStatus').textContent = '❌ Enter a valid Bin ID'; return; }
+                localStorage.setItem('paperbull_registry_bin_id', binId);
+                document.getElementById('cloudStatus').textContent = '✅ Registry Bin ID saved. Click Refresh.';
+                document.getElementById('cloudStatus').style.color = 'var(--accent)';
+            },
+
+            async refreshCloudUsers() {
+                const binId = document.getElementById('cloudBinId').value.trim() || localStorage.getItem('paperbull_registry_bin_id');
+                if (binId) document.getElementById('cloudBinId').value = binId;
+                if (!binId) {
+                    document.getElementById('cloudStatus').innerHTML = '⚠️ No Registry Bin ID set. <br>When users register on your live site, a bin is auto-created. Check localStorage for <code>paperbull_registry_bin_id</code>, or paste the bin ID above.';
+                    document.getElementById('cloudStatus').style.color = 'var(--yellow)';
+                    document.getElementById('cloudUsersBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:40px">No cloud data — set a Registry Bin ID first</td></tr>';
+                    return;
+                }
+                document.getElementById('cloudStatus').textContent = '⏳ Fetching from cloud...';
+                document.getElementById('cloudStatus').style.color = 'var(--muted)';
+                try {
+                    const res = await fetch(this._cloudBaseUrl + binId + '/latest', {
+                        headers: { 'X-Master-Key': this._cloudApiKey }
+                    });
+                    const json = await res.json();
+                    if (json && json.record && Array.isArray(json.record.users)) {
+                        const users = json.record.users;
+                        document.getElementById('cloudStatus').textContent = `✅ Loaded ${users.length} user(s) from cloud — Last updated: ${json.record.lastUpdated || 'unknown'}`;
+                        document.getElementById('cloudStatus').style.color = 'var(--accent)';
+                        document.getElementById('cloudStats').innerHTML =
+                            `<div class="stat-box green"><div class="stat-label">Cloud Users</div><div class="stat-value">${users.length}</div><div class="stat-sub">From live site</div></div>` +
+                            `<div class="stat-box blue"><div class="stat-label">Registry Bin</div><div class="stat-value" style="font-size:0.7rem;word-break:break-all">${binId}</div></div>`;
+                        document.getElementById('cloudUsersBody').innerHTML = users.length ? users.map(u =>
+                            `<tr><td style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--dim)">${u.userId || '—'}</td><td><strong>${u.name || '—'}</strong></td><td>${u.email || '—'}</td><td>${u.phone || '—'}</td><td>${u.joined ? new Date(u.joined).toLocaleDateString('en-IN') : '—'}</td><td>${u.lastActive || '—'}</td><td style="font-size:0.7rem;color:var(--dim);max-width:200px;overflow:hidden;text-overflow:ellipsis">${u.userAgent || '—'}</td></tr>`
+                        ).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:40px">No users in cloud registry yet</td></tr>';
+                    } else {
+                        document.getElementById('cloudStatus').textContent = '❌ Invalid response from cloud. Check the Bin ID.';
+                        document.getElementById('cloudStatus').style.color = 'var(--red)';
+                    }
+                } catch (e) {
+                    document.getElementById('cloudStatus').textContent = '❌ Failed to fetch: ' + e.message;
+                    document.getElementById('cloudStatus').style.color = 'var(--red)';
+                }
+            }
+        };
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminAuth.checkSession();
+            document.getElementById('adminPassword').addEventListener('keydown', e => { if (e.key === 'Enter') AdminAuth.login(); });
+            // Pre-fill registry bin ID from localStorage
+            const savedBin = localStorage.getItem('paperbull_registry_bin_id');
+            if (savedBin) document.getElementById('cloudBinId').value = savedBin;
+        });
+    </script>
+</body>
+
+</html>
